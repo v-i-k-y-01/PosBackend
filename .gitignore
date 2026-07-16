@@ -1,0 +1,25 @@
+# ----- .NET build output -----
+**/bin/
+**/obj/
+
+# ----- User-specific / IDE -----
+*.user
+*.suo
+*.userprefs
+.vs/
+.idea/
+.vscode/
+
+# ----- OS files -----
+.DS_Store
+Thumbs.db
+
+# ----- Secrets (defensive — also keep real secrets in user-secrets/env, not here) -----
+appsettings.*.Local.json
+secrets.json
+*.secret
+
+# ----- NuGet -----
+*.nupkg
+*.snupkg
+.nuget/

@@ -1,0 +1,20 @@
+{
+  "//": "Copy this file to appsettings.Development.json and fill in real values, OR set them via dotnet user-secrets / environment variables. Never commit real secrets. See README.md -> 'Configure the database connection'.",
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Information",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=<host>.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<your-password>"
+  },
+  "Jwt": {
+    "Issuer": "PosBackend",
+    "Audience": "PosBackend",
+    "Key": "<generate-a-long-random-secret-string>",
+    "ExpiryMinutes": 60,
+    "RefreshTokenExpiryDays": 7
+  }
+}

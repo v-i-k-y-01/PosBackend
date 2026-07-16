@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+*.user
+**/*.md
+.DS_Store
