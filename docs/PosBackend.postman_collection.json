@@ -1,0 +1,87 @@
+{
+  "info": {
+    "_postman_id": "a84f6bbc-f721-4d4f-b3a8-f80a7d9518bc",
+    "name": "PosBackend API",
+    "description": "Single-shop POS backend API. Select the accompanying local environment before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5244" },
+    { "key": "accessToken", "value": "" },
+    { "key": "ownerEmail", "value": "owner@demo.local" },
+    { "key": "cashierEmail", "value": "cashier@demo.local" },
+    { "key": "password", "value": "password" },
+    { "key": "categoryId", "value": "20000000-0000-0000-0000-000000000001" },
+    { "key": "productId", "value": "30000000-0000-0000-0000-000000000001" },
+    { "key": "saleId", "value": "40000000-0000-0000-0000-000000000001" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        { "name": "Health check", "request": { "method": "GET", "url": "{{baseUrl}}/api/health" } }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register first Owner (empty database only)",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/api/auth/register" }
+        },
+        {
+          "name": "Login as Owner",
+          "event": [{ "listen": "test", "script": { "exec": ["const response = pm.response.json();", "pm.environment.set('accessToken', response.accessToken);", "pm.collectionVariables.set('accessToken', response.accessToken);"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{ownerEmail}}\",\n  \"password\": \"{{password}}\"\n}" }, "url": "{{baseUrl}}/api/auth/login" }
+        },
+        {
+          "name": "Login as Cashier",
+          "event": [{ "listen": "test", "script": { "exec": ["const response = pm.response.json();", "pm.environment.set('accessToken', response.accessToken);", "pm.collectionVariables.set('accessToken', response.accessToken);"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{cashierEmail}}\",\n  \"password\": \"{{password}}\"\n}" }, "url": "{{baseUrl}}/api/auth/login" }
+        }
+      ]
+    },
+    {
+      "name": "Users (Owner)",
+      "item": [
+        { "name": "Create Additional Owner", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"owner2@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/api/users/owners" } },
+        { "name": "Create Cashier", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"newcashier@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/api/users" } }
+      ]
+    },
+    {
+      "name": "Categories (Owner)",
+      "item": [
+        { "name": "List Categories", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/categories" } },
+        { "name": "Get Category", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/categories/{{categoryId}}" } },
+        { "name": "Create Category", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Bakery\" }" }, "url": "{{baseUrl}}/api/categories" } },
+        { "name": "Update Category", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Cold Beverages\" }" }, "url": "{{baseUrl}}/api/categories/{{categoryId}}" } },
+        { "name": "Delete Category", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/categories/{{categoryId}}" } }
+      ]
+    },
+    {
+      "name": "Products (Owner)",
+      "item": [
+        { "name": "List Products", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/products?categoryId={{categoryId}}&search=Water" } },
+        { "name": "Get Product", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/products/{{productId}}" } },
+        { "name": "Create Product", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"name\": \"Test Bread\",\n  \"sku\": \"TEST-BREAD-001\",\n  \"price\": 40.00,\n  \"stockQty\": 20\n}" }, "url": "{{baseUrl}}/api/products" } },
+        { "name": "Update Product", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"name\": \"Mineral Water 1L\",\n  \"sku\": \"DEMO-WATER-1L\",\n  \"price\": 20.00,\n  \"stockQty\": 46\n}" }, "url": "{{baseUrl}}/api/products/{{productId}}" } },
+        { "name": "Delete Product", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/products/{{productId}}" } }
+      ]
+    },
+    {
+      "name": "Sales (Owner or Cashier)",
+      "item": [
+        { "name": "Create Sale", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"paymentMethod\": \"Cash\",\n  \"items\": [\n    { \"productId\": \"{{productId}}\", \"quantity\": 1 }\n  ]\n}" }, "url": "{{baseUrl}}/api/sales" } },
+        { "name": "List Sales", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/sales?page=1&pageSize=25" } },
+        { "name": "Get Sale", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/sales/{{saleId}}" } }
+      ]
+    },
+    {
+      "name": "Reports (Owner)",
+      "item": [
+        { "name": "Daily Revenue", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/reports/daily-revenue?from=2026-07-01&to=2026-07-31" } },
+        { "name": "Top Products", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/reports/top-products?limit=10" } }
+      ]
+    }
+  ]
+}

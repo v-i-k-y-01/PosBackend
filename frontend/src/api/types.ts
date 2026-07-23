@@ -1,0 +1,11 @@
+export type Role = 'Owner' | 'Cashier';
+export type User = { id: string; email: string; role: Role; createdAt: string };
+export type TokenResponse = { accessToken: string; accessTokenExpiresAt: string; refreshToken: string; refreshTokenExpiresAt: string };
+export type Category = { id: string; name: string };
+export type Product = { id: string; categoryId: string | null; categoryName: string | null; name: string; sku: string; price: number; stockQty: number; createdAt: string };
+export type CartLine = Product & { quantity: number };
+export type SaleItem = { productId: string; productName: string; quantity: number; unitPrice: number; subtotal: number };
+export type Sale = { id: string; cashierId: string; cashierEmail: string; totalAmount: number; paymentMethod: string; createdAt: string; items: SaleItem[] };
+export type PagedResult<T> = { items: T[]; page: number; pageSize: number; totalCount: number };
+export type DailyRevenue = { date: string; saleCount: number; totalRevenue: number };
+export type TopProduct = { productId: string; productName: string; quantitySold: number; revenue: number };

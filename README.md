@@ -12,7 +12,7 @@ Single-shop **Point-of-Sale (POS)** backend — an ASP.NET Core Web API built wi
 | Architecture | Clean Architecture — Domain → Application → Infrastructure → Api |
 | ORM | Entity Framework Core 10 + Npgsql (PostgreSQL) |
 | Database | PostgreSQL (Supabase) |
-| Auth | JWT Bearer + BCrypt password hashing *(wired in Step 2)* |
+| Auth | JWT Bearer + BCrypt password hashing |
 | Validation | FluentValidation, run via a MediatR pipeline behavior |
 | CQRS / Mediator | MediatR |
 | Mapping | AutoMapper |
@@ -62,6 +62,7 @@ cd src/PosBackend.Api
 dotnet user-secrets init   # only once
 dotnet user-secrets set ConnectionStrings:DefaultConnection \
   "Host=aws-0-<region>.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<password>"
+dotnet user-secrets set Jwt:Key "<a-random-secret-at-least-32-characters-long>"
 ```
 
 ### Option B — edit `appsettings.Development.json`
@@ -106,6 +107,16 @@ Browse to **http://localhost:5244/swagger**.
 
 Smoke test: `GET /api/health` → `200 { "status": "healthy", "timestamp": "…" }`.
 
+## Auth API (Step 2)
+
+Use Swagger to test these endpoints in order:
+
+1. `POST /api/auth/register` with `{ "email": "owner@example.com", "password": "password123" }` creates the one Owner account. Registration returns `409` once an Owner exists.
+2. `POST /api/auth/login` with the same credentials returns access and refresh JWTs. Use the **Authorize** button in Swagger with the access token.
+3. `POST /api/users` with `{ "email": "cashier@example.com", "password": "password123" }` creates a Cashier and requires an Owner access token.
+
+Set `Jwt:Key` through user-secrets in development (it must be at least 32 characters). The committed development configuration contains a safe placeholder only.
+
 ## Docker
 
 Build from the repository root (context must include all projects):
@@ -122,10 +133,24 @@ docker run -d -p 8080:8080 \
 Features are implemented one at a time and verified via Swagger before moving on:
 
 - [x] **Step 1** — Solution scaffold, EF Core migration, `GET /api/health`, Swagger UI
-- [ ] Step 2 — Auth: register first Owner, login (JWT), create Cashier
-- [ ] Step 3 — Category CRUD
-- [ ] Step 4 — Product CRUD (with stock quantity)
-- [ ] Step 5 — Sales creation (transactional stock deduction)
-- [ ] Step 6 — Sales history & reports (daily revenue, top products)
-- [ ] Step 7 — Role-based restrictions (Cashier vs Owner)
-- [ ] Step 8 — Validation polish & global exception-handling middleware
+- [x] **Step 2** — Auth: register first Owner, login (JWT), create Cashier
+- [x] **Step 3** — Owner-only category CRUD
+- [x] **Step 4** — Owner-only product CRUD (category, SKU, price, stock quantity)
+- [x] **Step 5** — Transactional sales creation with server-side totals and stock deduction
+- [x] **Step 6** — Sales history (pagination/date filters) and owner reports
+- [x] **Step 7** — Owner/Cashier restrictions (cashiers create and view only their sales)
+- [x] **Step 8** — FluentValidation and consistent JSON error handling
+
+## POS API quick reference
+
+All write and management endpoints require an access JWT returned from `POST /api/auth/login`.
+
+| Area | Endpoints | Access |
+| --- | --- | --- |
+| Users | `POST /api/users/owners` (additional Owner), `POST /api/users` (Cashier) | Owner |
+| Categories | `GET/POST/PUT/DELETE /api/categories` | Owner |
+| Products | `GET/POST/PUT/DELETE /api/products` | Owner |
+| Sales | `POST /api/sales`, `GET /api/sales`, `GET /api/sales/{id}` | Owner or Cashier (cashiers see only their own) |
+| Reports | `GET /api/reports/daily-revenue`, `GET /api/reports/top-products` | Owner |
+
+`GET /api/sales` accepts `page`, `pageSize`, `from`, and `to`. Product listing accepts `categoryId` and `search`. Errors use `{ "error": "…", "statusCode": 400 }`, with an `errors` object for validation failures.
