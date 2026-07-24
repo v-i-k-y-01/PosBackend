@@ -11,7 +11,8 @@ function readSession(): Session {
   if (!token) return null;
   try {
     const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return { email: payload.email ?? payload.unique_name ?? 'Team member', role: payload.role ?? 'Cashier' };
+    const role = payload.role ?? payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ?? 'Cashier';
+    return { email: payload.email ?? payload.unique_name ?? 'Team member', role };
   } catch { return null; }
 }
 

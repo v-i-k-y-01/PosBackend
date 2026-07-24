@@ -10,8 +10,21 @@ public sealed class CurrentUserService(IHttpContextAccessor httpContextAccessor)
     private ClaimsPrincipal User => httpContextAccessor.HttpContext?.User
         ?? throw new UnauthorizedAccessException("An authenticated user is required.");
 
-    public Guid UserId => Guid.TryParse(User.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id)
-        ? id : throw new UnauthorizedAccessException("The access token does not contain a valid user id.");
+    public Guid UserId
+    {
+        get
+        {
+            // Jwt tokens may be mapped to different claim types by the JWT handler.
+            // Try the registered JWT "sub" claim first, then fall back to the mapped NameIdentifier.
+            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                      ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (Guid.TryParse(sub, out var id))
+                return id;
+
+            throw new UnauthorizedAccessException("The access token does not contain a valid user id.");
+        }
+    }
 
     public bool IsOwner => User.IsInRole("Owner");
 }
