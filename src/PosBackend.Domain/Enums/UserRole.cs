@@ -7,6 +7,15 @@ namespace PosBackend.Domain.Enums;
 /// </summary>
 public enum UserRole
 {
+    /// <summary>
+    /// Represents the shop owner who has full administrative control,
+    /// including management of categories, products, team members, and reports.
+    /// </summary>
     Owner,
+
+    /// <summary>
+    /// Represents a cashier who handles transactions and checkouts.
+    /// Cashiers can create and view only their own sales history.
+    /// </summary>
     Cashier
 }

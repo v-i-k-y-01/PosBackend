@@ -10,14 +10,31 @@ using PosBackend.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- Layer composition (Clean Architecture) ---
+// ==========================================
+// 1. CONSTANTS DEFINITIONS
+// ==========================================
+const string CorsPolicyName = "Frontend";
+const string TokenTypeClaim = "token_type";
+const string AccessTokenValue = "access";
+const string SecuritySchemeBearer = "Bearer";
+const string SecurityHeaderAuthorization = "Authorization";
+
+// ==========================================
+// 2. LAYER COMPOSITION (CLEAN ARCHITECTURE)
+// ==========================================
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// ==========================================
+// 3. AUTHENTICATION & AUTHORIZATION CONFIG
+// ==========================================
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("JWT configuration is missing.");
+
 if (string.IsNullOrWhiteSpace(jwtOptions.Key) || jwtOptions.Key.Length < 32)
+{
     throw new InvalidOperationException("Jwt:Key must be at least 32 characters long.");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -34,46 +51,66 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero,
             RoleClaimType = ClaimTypes.Role
         };
+
         options.Events = new JwtBearerEvents
         {
             OnTokenValidated = context =>
             {
-                if (context.Principal?.FindFirstValue("token_type") != "access")
+                // Enforce that refresh tokens cannot be used to invoke endpoints.
+                if (context.Principal?.FindFirstValue(TokenTypeClaim) != AccessTokenValue)
+                {
                     context.Fail("Only access tokens can be used to authorize API requests.");
+                }
                 return Task.CompletedTask;
             },
             OnChallenge = async context =>
             {
+                // Intercept default challenge response to return a consistent JSON schema.
                 context.HandleResponse();
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { error = "Authentication is required.", statusCode = StatusCodes.Status401Unauthorized });
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    error = "Authentication is required.",
+                    statusCode = StatusCodes.Status401Unauthorized
+                });
             },
             OnForbidden = async context =>
             {
+                // Intercept default forbidden response to return a consistent JSON schema.
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "You do not have permission to perform this action.", statusCode = StatusCodes.Status403Forbidden });
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    error = "You do not have permission to perform this action.",
+                    statusCode = StatusCodes.Status403Forbidden
+                });
             }
         };
     });
+
 builder.Services.AddAuthorization();
+
+// ==========================================
+// 4. CORS POLICY SETUP
+// ==========================================
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Frontend", policy => policy
+    options.AddPolicy(CorsPolicyName, policy => policy
         .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
             ?? ["http://localhost:5173", "http://127.0.0.1:5173"])
         .AllowAnyHeader()
         .AllowAnyMethod());
 });
 
-// --- Web API + OpenAPI docs ---
-// Swagger UI is the primary testing tool in this backend-only phase.
+// ==========================================
+// 5. WEB API & SWAGGER / OPENAPI DOCUMENTATION
+// ==========================================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    options.AddSecurityDefinition(SecuritySchemeBearer, new OpenApiSecurityScheme
     {
-        Name = "Authorization",
+        Name = SecurityHeaderAuthorization,
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
@@ -82,10 +119,13 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// ==========================================
+// 6. REQUEST MIDDLEWARE PIPELINE
+// ==========================================
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-app.UseCors("Frontend");
+app.UseCors(CorsPolicyName);
 
 if (app.Environment.IsDevelopment())
 {

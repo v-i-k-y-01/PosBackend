@@ -4,28 +4,36 @@ using PosBackend.Domain.Entities;
 
 namespace PosBackend.Infrastructure.Persistence.Configurations;
 
+/// <summary>
+/// Entity Framework Core configuration for the Sale domain entity.
+/// Defines table mappings, keys, constraints, column conversions, and relationships.
+/// </summary>
 public class SaleConfiguration : IEntityTypeConfiguration<Sale>
 {
+    /// <summary>
+    /// Configures constraints, column conversions, and relational bounds for the Sales table.
+    /// </summary>
+    /// <param name="builder">The builder to configure Sale entity details.</param>
     public void Configure(EntityTypeBuilder<Sale> builder)
     {
         builder.ToTable("Sales");
-        builder.HasKey(s => s.Id);
+        builder.HasKey(sale => sale.Id);
 
-        builder.Property(s => s.TotalAmount)
+        builder.Property(sale => sale.TotalAmount)
             .HasColumnType("numeric(18,2)")
             .IsRequired();
 
-        builder.Property(s => s.PaymentMethod)
+        builder.Property(sale => sale.PaymentMethod)
             .HasConversion<string>()
             .HasMaxLength(20)
             .IsRequired();
 
-        builder.Property(s => s.CreatedAt).IsRequired();
+        builder.Property(sale => sale.CreatedAt).IsRequired();
 
         // Deleting a sale cascades to its line items.
-        builder.HasMany(s => s.Items)
-            .WithOne(i => i.Sale)
-            .HasForeignKey(i => i.SaleId)
+        builder.HasMany(sale => sale.Items)
+            .WithOne(saleItem => saleItem.Sale)
+            .HasForeignKey(saleItem => saleItem.SaleId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

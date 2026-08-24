@@ -5,26 +5,54 @@ using PosBackend.Application.Common.Interfaces;
 
 namespace PosBackend.Infrastructure.Services;
 
-public sealed class CurrentUserService(IHttpContextAccessor httpContextAccessor) : ICurrentUserService
+/// <summary>
+/// Retrieves properties of the currently authenticated user based on HTTP request security claims.
+/// </summary>
+public sealed class CurrentUserService : ICurrentUserService
 {
-    private ClaimsPrincipal User => httpContextAccessor.HttpContext?.User
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CurrentUserService"/> class.
+    /// </summary>
+    /// <param name="httpContextAccessor">The accessor for current HTTP Context context.</param>
+    public CurrentUserService(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    /// <summary>
+    /// Gets the claims principal user context associated with the current HTTP request.
+    /// </summary>
+    /// <exception cref="UnauthorizedAccessException">Thrown if HTTP Context or Claims Principal is not available.</exception>
+    private ClaimsPrincipal User => _httpContextAccessor.HttpContext?.User
         ?? throw new UnauthorizedAccessException("An authenticated user is required.");
 
+    /// <summary>
+    /// Gets the unique identifier (GUID) of the authenticated user.
+    /// Tries Sub claim and falls back to NameIdentifier due to claim mapping variations.
+    /// </summary>
+    /// <exception cref="UnauthorizedAccessException">Thrown if access token does not hold a valid user identifier.</exception>
     public Guid UserId
     {
         get
         {
-            // Jwt tokens may be mapped to different claim types by the JWT handler.
+            // JWT tokens may map properties differently based on the handler setup.
             // Try the registered JWT "sub" claim first, then fall back to the mapped NameIdentifier.
-            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
-                      ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userClaimId = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                              ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (Guid.TryParse(sub, out var id))
-                return id;
+            if (Guid.TryParse(userClaimId, out var parsedUserId))
+            {
+                return parsedUserId;
+            }
 
             throw new UnauthorizedAccessException("The access token does not contain a valid user id.");
         }
     }
 
+    /// <summary>
+    /// Gets a value indicating whether the current user has the Owner role.
+    /// </summary>
     public bool IsOwner => User.IsInRole("Owner");
 }

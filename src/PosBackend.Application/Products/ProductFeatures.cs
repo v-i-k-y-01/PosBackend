@@ -7,21 +7,323 @@ using PosBackend.Domain.Entities;
 
 namespace PosBackend.Application.Products;
 
-public sealed record ProductDto(Guid Id, Guid? CategoryId, string? CategoryName, string Name, string Sku, decimal Price, int StockQty, DateTime CreatedAt);
-public sealed record CreateProductCommand(Guid? CategoryId, string Name, string Sku, decimal Price, int StockQty) : IRequest<ProductDto>;
-public sealed record UpdateProductCommand(Guid Id, Guid? CategoryId, string Name, string Sku, decimal Price, int StockQty) : IRequest<ProductDto>;
+/// <summary>
+/// Data transfer object representing a product.
+/// </summary>
+/// <param name="Id">Unique product identifier.</param>
+/// <param name="CategoryId">Associated category identifier (optional).</param>
+/// <param name="CategoryName">Name of the category (optional).</param>
+/// <param name="Name">Product display name.</param>
+/// <param name="Sku">Unique Stock Keeping Unit.</param>
+/// <param name="Price">Product unit price.</param>
+/// <param name="StockQty">Current available inventory quantity.</param>
+/// <param name="CreatedAt">Timestamp when product was added.</param>
+public sealed record ProductDto(
+    Guid Id,
+    Guid? CategoryId,
+    string? CategoryName,
+    string Name,
+    string Sku,
+    decimal Price,
+    int StockQty,
+    DateTime CreatedAt);
+
+/// <summary>
+/// Command to create a new product.
+/// </summary>
+public sealed record CreateProductCommand(
+    Guid? CategoryId,
+    string Name,
+    string Sku,
+    decimal Price,
+    int StockQty) : IRequest<ProductDto>;
+
+/// <summary>
+/// Command to update properties of an existing product.
+/// </summary>
+public sealed record UpdateProductCommand(
+    Guid Id,
+    Guid? CategoryId,
+    string Name,
+    string Sku,
+    decimal Price,
+    int StockQty) : IRequest<ProductDto>;
+
+/// <summary>
+/// Command to delete a product by its identifier.
+/// </summary>
 public sealed record DeleteProductCommand(Guid Id) : IRequest;
+
+/// <summary>
+/// Query to search and filter products.
+/// </summary>
 public sealed record GetProductsQuery(Guid? CategoryId, string? Search) : IRequest<IReadOnlyList<ProductDto>>;
+
+/// <summary>
+/// Query to retrieve a product by its identifier.
+/// </summary>
 public sealed record GetProductByIdQuery(Guid Id) : IRequest<ProductDto>;
-public sealed class CreateProductValidator : AbstractValidator<CreateProductCommand> { public CreateProductValidator() { Rules(); } void Rules() { RuleFor(x => x.Name).NotEmpty().MaximumLength(300); RuleFor(x => x.Sku).NotEmpty().MaximumLength(100); RuleFor(x => x.Price).GreaterThan(0); RuleFor(x => x.StockQty).GreaterThanOrEqualTo(0); } }
-public sealed class UpdateProductValidator : AbstractValidator<UpdateProductCommand> { public UpdateProductValidator() { RuleFor(x => x.Id).NotEmpty(); RuleFor(x => x.Name).NotEmpty().MaximumLength(300); RuleFor(x => x.Sku).NotEmpty().MaximumLength(100); RuleFor(x => x.Price).GreaterThan(0); RuleFor(x => x.StockQty).GreaterThanOrEqualTo(0); } }
-public sealed class ProductHandlers(IAppDbContext db) : IRequestHandler<CreateProductCommand, ProductDto>, IRequestHandler<UpdateProductCommand, ProductDto>, IRequestHandler<DeleteProductCommand>, IRequestHandler<GetProductsQuery, IReadOnlyList<ProductDto>>, IRequestHandler<GetProductByIdQuery, ProductDto>
+
+/// <summary>
+/// Validator governing rules for creating a product.
+/// </summary>
+public sealed class CreateProductValidator : AbstractValidator<CreateProductCommand>
 {
-    static ProductDto Map(Product x) => new(x.Id, x.CategoryId, x.Category?.Name, x.Name, x.Sku, x.Price, x.StockQty, x.CreatedAt);
-    async Task ValidateCategory(Guid? id, CancellationToken ct) { if (id.HasValue && !await db.Categories.AnyAsync(x => x.Id == id, ct)) throw new NotFoundException("Category", id.Value); }
-    public async Task<ProductDto> Handle(CreateProductCommand r, CancellationToken ct) { await ValidateCategory(r.CategoryId, ct); var sku=r.Sku.Trim(); if(await db.Products.AnyAsync(x=>x.Sku==sku,ct)) throw new ConflictException("A product with this SKU already exists."); var p=new Product { CategoryId=r.CategoryId, Name=r.Name.Trim(), Sku=sku, Price=r.Price, StockQty=r.StockQty, CreatedAt=DateTime.UtcNow}; db.Products.Add(p); await db.SaveChangesAsync(ct); p.Category = r.CategoryId.HasValue ? await db.Categories.FindAsync([r.CategoryId.Value], ct) : null; return Map(p); }
-    public async Task<ProductDto> Handle(UpdateProductCommand r, CancellationToken ct) { var p=await db.Products.Include(x=>x.Category).SingleOrDefaultAsync(x=>x.Id==r.Id,ct)??throw new NotFoundException("Product",r.Id); await ValidateCategory(r.CategoryId,ct); var sku=r.Sku.Trim(); if(await db.Products.AnyAsync(x=>x.Id!=r.Id&&x.Sku==sku,ct))throw new ConflictException("A product with this SKU already exists."); p.CategoryId=r.CategoryId;p.Name=r.Name.Trim();p.Sku=sku;p.Price=r.Price;p.StockQty=r.StockQty;p.Category=r.CategoryId.HasValue?await db.Categories.FindAsync([r.CategoryId.Value],ct):null;await db.SaveChangesAsync(ct);return Map(p); }
-    public async Task Handle(DeleteProductCommand r, CancellationToken ct) { var p=await db.Products.FindAsync([r.Id],ct)??throw new NotFoundException("Product",r.Id); if(await db.SaleItems.AnyAsync(x=>x.ProductId==r.Id,ct))throw new ConflictException("A product with sale history cannot be deleted."); db.Products.Remove(p);await db.SaveChangesAsync(ct); }
-    public async Task<IReadOnlyList<ProductDto>> Handle(GetProductsQuery r,CancellationToken ct) { var q=db.Products.AsNoTracking().Include(x=>x.Category).AsQueryable();if(r.CategoryId.HasValue)q=q.Where(x=>x.CategoryId==r.CategoryId);if(!string.IsNullOrWhiteSpace(r.Search)){var s=r.Search.Trim();q=q.Where(x=>x.Name.Contains(s)||x.Sku.Contains(s));}return (await q.OrderBy(x=>x.Name).ToListAsync(ct)).Select(Map).ToList(); }
-    public async Task<ProductDto> Handle(GetProductByIdQuery r,CancellationToken ct) {var p=await db.Products.AsNoTracking().Include(x=>x.Category).SingleOrDefaultAsync(x=>x.Id==r.Id,ct)??throw new NotFoundException("Product",r.Id);return Map(p);}
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CreateProductValidator"/> class.
+    /// </summary>
+    public CreateProductValidator()
+    {
+        RuleFor(command => command.Name)
+            .NotEmpty().WithMessage("Product name is required.")
+            .MaximumLength(300).WithMessage("Product name cannot exceed 300 characters.");
+
+        RuleFor(command => command.Sku)
+            .NotEmpty().WithMessage("SKU is required.")
+            .MaximumLength(100).WithMessage("SKU cannot exceed 100 characters.");
+
+        RuleFor(command => command.Price)
+            .GreaterThan(0).WithMessage("Price must be greater than zero.");
+
+        RuleFor(command => command.StockQty)
+            .GreaterThanOrEqualTo(0).WithMessage("Stock quantity cannot be negative.");
+    }
+}
+
+/// <summary>
+/// Validator governing rules for updating a product.
+/// </summary>
+public sealed class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="UpdateProductValidator"/> class.
+    /// </summary>
+    public UpdateProductValidator()
+    {
+        RuleFor(command => command.Id)
+            .NotEmpty().WithMessage("Product ID is required.");
+
+        RuleFor(command => command.Name)
+            .NotEmpty().WithMessage("Product name is required.")
+            .MaximumLength(300).WithMessage("Product name cannot exceed 300 characters.");
+
+        RuleFor(command => command.Sku)
+            .NotEmpty().WithMessage("SKU is required.")
+            .MaximumLength(100).WithMessage("SKU cannot exceed 100 characters.");
+
+        RuleFor(command => command.Price)
+            .GreaterThan(0).WithMessage("Price must be greater than zero.");
+
+        RuleFor(command => command.StockQty)
+            .GreaterThanOrEqualTo(0).WithMessage("Stock quantity cannot be negative.");
+    }
+}
+
+/// <summary>
+/// Consolidated MediatR handlers for Product commands and queries.
+/// </summary>
+public sealed class ProductHandlers :
+    IRequestHandler<CreateProductCommand, ProductDto>,
+    IRequestHandler<UpdateProductCommand, ProductDto>,
+    IRequestHandler<DeleteProductCommand>,
+    IRequestHandler<GetProductsQuery, IReadOnlyList<ProductDto>>,
+    IRequestHandler<GetProductByIdQuery, ProductDto>
+{
+    private readonly IAppDbContext _dbContext;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ProductHandlers"/> class.
+    /// </summary>
+    /// <param name="dbContext">The application database context.</param>
+    public ProductHandlers(IAppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    /// <summary>
+    /// Maps a domain Product entity to a ProductDto.
+    /// </summary>
+    private static ProductDto MapToDto(Product product)
+    {
+        return new ProductDto(
+            product.Id,
+            product.CategoryId,
+            product.Category?.Name,
+            product.Name,
+            product.Sku,
+            product.Price,
+            product.StockQty,
+            product.CreatedAt);
+    }
+
+    /// <summary>
+    /// Validates that the referenced category exists in the system.
+    /// </summary>
+    private async Task EnsureCategoryExistsAsync(Guid? categoryId, CancellationToken cancellationToken)
+    {
+        if (categoryId.HasValue)
+        {
+            var categoryExists = await _dbContext.Categories
+                .AnyAsync(category => category.Id == categoryId.Value, cancellationToken);
+
+            if (!categoryExists)
+            {
+                throw new NotFoundException("Category", categoryId.Value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handles product creation. Checks for SKU conflicts and verifies category.
+    /// </summary>
+    public async Task<ProductDto> Handle(CreateProductCommand request, CancellationToken cancellationToken)
+    {
+        await EnsureCategoryExistsAsync(request.CategoryId, cancellationToken);
+
+        var trimmedSku = request.Sku.Trim();
+
+        var skuExists = await _dbContext.Products
+            .AnyAsync(product => product.Sku == trimmedSku, cancellationToken);
+
+        if (skuExists)
+        {
+            throw new ConflictException("A product with this SKU already exists.");
+        }
+
+        var product = new Product
+        {
+            CategoryId = request.CategoryId,
+            Name = request.Name.Trim(),
+            Sku = trimmedSku,
+            Price = request.Price,
+            StockQty = request.StockQty,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.Products.Add(product);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Populate category relation for the mapped DTO response.
+        if (product.CategoryId.HasValue)
+        {
+            product.Category = await _dbContext.Categories
+                .FindAsync(new object[] { product.CategoryId.Value }, cancellationToken);
+        }
+
+        return MapToDto(product);
+    }
+
+    /// <summary>
+    /// Handles product updates. Validates that product exists, checks for SKU conflicts, and saves details.
+    /// </summary>
+    public async Task<ProductDto> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
+    {
+        var product = await _dbContext.Products
+            .Include(p => p.Category)
+            .SingleOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
+
+        if (product is null)
+        {
+            throw new NotFoundException("Product", request.Id);
+        }
+
+        await EnsureCategoryExistsAsync(request.CategoryId, cancellationToken);
+
+        var trimmedSku = request.Sku.Trim();
+
+        var skuConflict = await _dbContext.Products
+            .AnyAsync(p => p.Id != request.Id && p.Sku == trimmedSku, cancellationToken);
+
+        if (skuConflict)
+        {
+            throw new ConflictException("A product with this SKU already exists.");
+        }
+
+        product.CategoryId = request.CategoryId;
+        product.Name = request.Name.Trim();
+        product.Sku = trimmedSku;
+        product.Price = request.Price;
+        product.StockQty = request.StockQty;
+
+        // Refresh category navigation property
+        product.Category = request.CategoryId.HasValue
+            ? await _dbContext.Categories.FindAsync(new object[] { request.CategoryId.Value }, cancellationToken)
+            : null;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return MapToDto(product);
+    }
+
+    /// <summary>
+    /// Handles product deletion. Restricts deletion if product has historical sale items.
+    /// </summary>
+    public async Task Handle(DeleteProductCommand request, CancellationToken cancellationToken)
+    {
+        var product = await _dbContext.Products
+            .FindAsync(new object[] { request.Id }, cancellationToken);
+
+        if (product is null)
+        {
+            throw new NotFoundException("Product", request.Id);
+        }
+
+        // Restrict deletion if referenced by any sale items.
+        var hasSaleHistory = await _dbContext.SaleItems
+            .AnyAsync(item => item.ProductId == request.Id, cancellationToken);
+
+        if (hasSaleHistory)
+        {
+            throw new ConflictException("A product with sale history cannot be deleted.");
+        }
+
+        _dbContext.Products.Remove(product);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Handles querying and filtering the products catalog.
+    /// </summary>
+    public async Task<IReadOnlyList<ProductDto>> Handle(GetProductsQuery request, CancellationToken cancellationToken)
+    {
+        var query = _dbContext.Products
+            .AsNoTracking()
+            .Include(p => p.Category)
+            .AsQueryable();
+
+        if (request.CategoryId.HasValue)
+        {
+            query = query.Where(p => p.CategoryId == request.CategoryId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var trimmedSearch = request.Search.Trim().ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(trimmedSearch) || p.Sku.ToLower().Contains(trimmedSearch));
+        }
+
+        var products = await query
+            .OrderBy(p => p.Name)
+            .ToListAsync(cancellationToken);
+
+        return products.Select(MapToDto).ToList();
+    }
+
+    /// <summary>
+    /// Handles retrieving a single product by its unique identifier.
+    /// </summary>
+    public async Task<ProductDto> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
+    {
+        var product = await _dbContext.Products
+            .AsNoTracking()
+            .Include(p => p.Category)
+            .SingleOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
+
+        if (product is null)
+        {
+            throw new NotFoundException("Product", request.Id);
+        }
+
+        return MapToDto(product);
+    }
 }

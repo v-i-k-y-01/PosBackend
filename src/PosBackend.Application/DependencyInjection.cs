@@ -12,6 +12,12 @@ namespace PosBackend.Application;
 /// </summary>
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Extension method to register all Application-layer dependencies in the service collection.
+    /// This includes MediatR handlers, pipeline behaviors, AutoMapper profiles, and FluentValidation validators.
+    /// </summary>
+    /// <param name="services">The DI container service collection to register services to.</param>
+    /// <returns>The modified service collection for chaining calls.</returns>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddMediatR(cfg =>

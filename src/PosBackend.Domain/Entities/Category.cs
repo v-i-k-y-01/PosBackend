@@ -2,10 +2,18 @@ using PosBackend.Domain.Common;
 
 namespace PosBackend.Domain.Entities;
 
+/// <summary>
+/// Represents a category used to group and classify products in the system.
+/// </summary>
 public class Category : BaseEntity
 {
+    /// <summary>
+    /// Gets or sets the unique name of the category.
+    /// </summary>
     public string Name { get; set; } = null!;
 
-    // Navigation: products grouped under this category.
+    /// <summary>
+    /// Gets or sets the navigation collection of products associated with this category.
+    /// </summary>
     public ICollection<Product> Products { get; set; } = new List<Product>();
 }

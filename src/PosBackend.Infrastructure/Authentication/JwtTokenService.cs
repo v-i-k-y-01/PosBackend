@@ -9,43 +9,71 @@ using PosBackend.Domain.Entities;
 
 namespace PosBackend.Infrastructure.Authentication;
 
-public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
+/// <summary>
+/// Service implementation for generating security tokens (JWT) for authenticated users.
+/// </summary>
+public sealed class JwtTokenService : ITokenService
 {
-    private readonly JwtOptions _options = options.Value;
+    private const string TokenTypeClaim = "token_type";
+    private const string AccessTokenType = "access";
+    private const string RefreshTokenType = "refresh";
 
+    private readonly JwtOptions _options;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JwtTokenService"/> class.
+    /// </summary>
+    /// <param name="options">The configured JWT options instance.</param>
+    public JwtTokenService(IOptions<JwtOptions> options)
+    {
+        _options = options.Value;
+    }
+
+    /// <summary>
+    /// Generates access and refresh JSON Web Tokens (JWT) for the authenticated user.
+    /// </summary>
+    /// <param name="user">The user entity context requesting tokens.</param>
+    /// <returns>A structured TokenResponse containing both tokens and their expiration boundaries.</returns>
     public TokenResponse CreateTokens(User user)
     {
-        var now = DateTime.UtcNow;
-        var accessTokenExpiresAt = now.AddMinutes(_options.ExpiryMinutes);
-        var refreshTokenExpiresAt = now.AddDays(_options.RefreshTokenExpiryDays);
+        var currentUtcTime = DateTime.UtcNow;
+        var accessTokenExpiresAt = currentUtcTime.AddMinutes(_options.ExpiryMinutes);
+        var refreshTokenExpiresAt = currentUtcTime.AddDays(_options.RefreshTokenExpiryDays);
+
+        var accessToken = CreateToken(user, accessTokenExpiresAt, AccessTokenType);
+        var refreshToken = CreateToken(user, refreshTokenExpiresAt, RefreshTokenType);
 
         return new TokenResponse(
-            CreateToken(user, accessTokenExpiresAt, "access"),
+            accessToken,
             accessTokenExpiresAt,
-            CreateToken(user, refreshTokenExpiresAt, "refresh"),
+            refreshToken,
             refreshTokenExpiresAt);
     }
 
+    /// <summary>
+    /// Generates a signed JWT with specific claims and expiration boundaries.
+    /// </summary>
     private string CreateToken(User user, DateTime expiresAt, string tokenType)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Key));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Key));
+        var signingCredentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(ClaimTypes.Role, user.Role.ToString()),
-            new Claim("token_type", tokenType)
+            new Claim(TokenTypeClaim, tokenType)
         };
 
-        var token = new JwtSecurityToken(
+        var securityToken = new JwtSecurityToken(
             issuer: _options.Issuer,
             audience: _options.Audience,
             claims: claims,
             notBefore: DateTime.UtcNow,
             expires: expiresAt,
-            signingCredentials: credentials);
+            signingCredentials: signingCredentials);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return new JwtSecurityTokenHandler().WriteToken(securityToken);
     }
 }
