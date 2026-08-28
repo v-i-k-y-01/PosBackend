@@ -12,6 +12,7 @@ import {
   PackagePlus,
   Pencil,
   Plus,
+  Printer,
   QrCode,
   ReceiptText,
   Search,
@@ -26,6 +27,7 @@ import type { CartLine, Category, DailyRevenue, PagedResult, Product, Sale, TopP
 import { useAuth } from './auth/AuthContext';
 import { EmptyState } from './components/EmptyState';
 import { Modal } from './components/Modal';
+import { ReceiptModal } from './components/ReceiptModal';
 import { Toast } from './components/Toast';
 
 type View = 'dashboard' | 'checkout' | 'inventory' | 'categories' | 'sales' | 'team';
@@ -172,6 +174,7 @@ function AppShell() {
   const [modal, setModal] = useState<'product' | 'category' | 'team' | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [printedSale, setPrintedSale] = useState<Sale | null>(null);
   const [search, setSearch] = useState('');
   const [confirmation, setConfirmation] = useState<{
     title: string;
@@ -277,6 +280,7 @@ function AppShell() {
       );
       setCart([]);
       await loadCatalog();
+      setPrintedSale(sale);
       setNotice({ message: `Sale completed · ${formatMoney(sale.totalAmount)}` });
     } catch (exception) {
       showError(exception);
@@ -511,6 +515,7 @@ function AppShell() {
             {view === 'sales' && (
               <SalesHistory
                 sales={sales}
+                onViewReceipt={setPrintedSale}
                 onPage={async (page) => {
                   try {
                     setLoading(true);
@@ -527,6 +532,13 @@ function AppShell() {
           </>
         )}
       </main>
+
+      {printedSale && (
+        <ReceiptModal
+          sale={printedSale}
+          onClose={() => setPrintedSale(null)}
+        />
+      )}
 
       {modal === 'product' && (
         <ProductModal
@@ -1008,12 +1020,13 @@ function Categories({ categories, onEdit, onDelete }: CategoriesProps) {
 interface SalesHistoryProps {
   sales: PagedResult<Sale> | null;
   onPage: (page: number) => Promise<void>;
+  onViewReceipt: (sale: Sale) => void;
 }
 
 /**
  * Historical transaction receipt logs layout.
  */
-function SalesHistory({ sales, onPage }: SalesHistoryProps) {
+function SalesHistory({ sales, onPage, onViewReceipt }: SalesHistoryProps) {
   if (!sales?.items.length) {
     return (
       <EmptyState
@@ -1036,6 +1049,7 @@ function SalesHistory({ sales, onPage }: SalesHistoryProps) {
               <th>Items</th>
               <th>Created</th>
               <th>Total</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -1055,6 +1069,15 @@ function SalesHistory({ sales, onPage }: SalesHistoryProps) {
                   <td>{formatDate(sale.createdAt)}</td>
                   <td>
                     <strong>{formatMoney(sale.totalAmount)}</strong>
+                  </td>
+                  <td className="actions">
+                    <button
+                      className="receipt-btn"
+                      onClick={() => onViewReceipt(sale)}
+                      title="View & Print Receipt"
+                    >
+                      <Printer size={15} /> Receipt
+                    </button>
                   </td>
                 </tr>
               );

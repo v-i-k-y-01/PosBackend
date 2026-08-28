@@ -1,25 +1,68 @@
-# ----- .NET build output -----
+# ========================================================
+# .NET / C# Build Output & Cache
+# ========================================================
 **/bin/
 **/obj/
+**/TestResults/
+[Dd]ebug/
+[Rr]elease/
+*.trx
+*.coverage
+*.coveragexml
 
-# ----- User-specific / IDE -----
-*.user
-*.suo
-*.userprefs
-.vs/
-.idea/
-.vscode/
+# ========================================================
+# Node / Frontend / Vite
+# ========================================================
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# ----- OS files -----
-.DS_Store
-Thumbs.db
-
-# ----- Secrets (defensive — also keep real secrets in user-secrets/env, not here) -----
+# ========================================================
+# Environment Variables & Secrets
+# ========================================================
+.env
+.env.local
+.env.*.local
 appsettings.*.Local.json
+appsettings.Development.local.json
 secrets.json
 *.secret
 
-# ----- NuGet -----
+# ========================================================
+# User-Specific / IDE Files
+# ========================================================
+*.user
+*.suo
+*.userprefs
+*.dbmdl
+.vs/
+.idea/
+.vscode/
+*.DotSettings.user
+
+# ========================================================
+# Operating System Files
+# ========================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ========================================================
+# NuGet Packages
+# ========================================================
 *.nupkg
 *.snupkg
 .nuget/
+**/packages/
+!**/packages/build/
