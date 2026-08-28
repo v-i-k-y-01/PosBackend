@@ -100,16 +100,23 @@ export const posApi = {
     request<Product>(`/api/products/${id}`),
 
   /**
-   * Creates a new sales transaction. Maps cash / card methods to API enumerations.
+   * Creates a new sales transaction. Maps cash / card / UPI methods to API enumerations.
    */
-  createSale: (paymentMethod: 'Cash' | 'Card', items: { productId: string; quantity: number }[]) =>
-    request<Sale>('/api/sales', {
+  createSale: (paymentMethod: 'Cash' | 'Card' | 'Upi', items: { productId: string; quantity: number }[]) => {
+    const paymentMethodMap: Record<'Cash' | 'Card' | 'Upi', number> = {
+      Cash: 0,
+      Card: 1,
+      Upi: 2,
+    };
+
+    return request<Sale>('/api/sales', {
       method: 'POST',
       body: JSON.stringify({
-        paymentMethod: paymentMethod === 'Cash' ? 0 : 1,
+        paymentMethod: paymentMethodMap[paymentMethod],
         items
       })
-    }),
+    });
+  },
 
   /**
    * Retrieves details of a specific sale.

@@ -12,6 +12,7 @@ import {
   PackagePlus,
   Pencil,
   Plus,
+  QrCode,
   ReceiptText,
   Search,
   ShoppingBag,
@@ -268,7 +269,7 @@ function AppShell() {
     );
   };
 
-  const handleCheckout = async (paymentMethod: 'Cash' | 'Card') => {
+  const handleCheckout = async (paymentMethod: 'Cash' | 'Card' | 'Upi') => {
     try {
       const sale = await posApi.createSale(
         paymentMethod,
@@ -757,7 +758,7 @@ interface CheckoutProps {
   onSearch: (value: string) => void;
   onAdd: (product: Product) => void;
   onQuantity: (id: string, quantity: number) => void;
-  onCheckout: (method: 'Cash' | 'Card') => Promise<void>;
+  onCheckout: (method: 'Cash' | 'Card' | 'Upi') => Promise<void>;
 }
 
 /**
@@ -775,7 +776,7 @@ function Checkout({
 }: CheckoutProps) {
   const [paying, setPaying] = useState(false);
 
-  const handlePay = async (method: 'Cash' | 'Card') => {
+  const handlePay = async (method: 'Cash' | 'Card' | 'Upi') => {
     if (!cart.length) return;
     setPaying(true);
     await onCheckout(method);
@@ -875,6 +876,9 @@ function Checkout({
           </button>
           <button disabled={!cart.length || paying} onClick={() => void handlePay('Card')}>
             <CreditCard size={18} /> Card
+          </button>
+          <button disabled={!cart.length || paying} onClick={() => void handlePay('Upi')}>
+            <QrCode size={18} /> UPI
           </button>
         </div>
       </aside>

@@ -84,4 +84,18 @@ public class DomainEntitiesTests
         sale.TotalAmount.Should().Be(70.00m);
         sale.PaymentMethod.Should().Be(PaymentMethod.Card);
     }
+
+    [Fact]
+    public void Sale_ShouldSupportUpiPaymentMethod()
+    {
+        // Arrange & Act
+        var sale = new Sale
+        {
+            PaymentMethod = PaymentMethod.Upi
+        };
+
+        // Assert
+        sale.PaymentMethod.Should().Be(PaymentMethod.Upi);
+        sale.PaymentMethod.ToString().Should().Be("Upi");
+    }
 }
