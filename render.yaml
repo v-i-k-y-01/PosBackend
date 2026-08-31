@@ -23,3 +23,5 @@ services:
         value: "true"
       - key: ENABLE_SWAGGER
         value: "true"
+      - key: DOTNET_USE_POLLING_FILE_WATCHER
+        value: "true"

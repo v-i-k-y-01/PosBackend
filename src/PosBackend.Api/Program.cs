@@ -8,6 +8,9 @@ using System.Security.Claims;
 using System.Text;
 using PosBackend.Api.Middleware;
 
+// Handle inotify limitations in shared container hosting environments (e.g. Render, Koyeb)
+Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "true");
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================

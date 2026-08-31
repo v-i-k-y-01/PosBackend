@@ -30,5 +30,7 @@ COPY --from=build /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
+ENV DOTNET_EnableDiagnostics=0
 
 ENTRYPOINT ["dotnet", "PosBackend.Api.dll"]
