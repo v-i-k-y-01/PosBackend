@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: posbackend-api
+    runtime: docker
+    dockerfilePath: src/PosBackend.Api/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Jwt__Key
+        generateValue: true
+      - key: Jwt__Issuer
+        value: PosBackend
+      - key: Jwt__Audience
+        value: PosBackend
+      - key: Cors__AllowedOrigins
+        value: "*"
+      - key: APPLY_MIGRATIONS
+        value: "true"
+      - key: ENABLE_SWAGGER
+        value: "true"

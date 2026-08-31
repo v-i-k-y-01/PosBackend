@@ -92,13 +92,34 @@ builder.Services.AddAuthorization();
 // ==========================================
 // 4. CORS POLICY SETUP
 // ==========================================
+var rawOrigins = builder.Configuration["Cors:AllowedOrigins"] 
+    ?? builder.Configuration["CORS_ALLOWED_ORIGINS"];
+
+var configuredOrigins = !string.IsNullOrWhiteSpace(rawOrigins)
+    ? rawOrigins.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    : builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+
+var finalOrigins = (configuredOrigins != null && configuredOrigins.Length > 0)
+    ? configuredOrigins
+    : ["http://localhost:5173", "http://127.0.0.1:5173"];
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(CorsPolicyName, policy => policy
-        .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-            ?? ["http://localhost:5173", "http://127.0.0.1:5173"])
-        .AllowAnyHeader()
-        .AllowAnyMethod());
+    options.AddPolicy(CorsPolicyName, policy =>
+    {
+        if (finalOrigins.Contains("*"))
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+        else
+        {
+            policy.WithOrigins(finalOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+    });
 });
 
 // ==========================================
@@ -124,10 +145,22 @@ builder.Services.AddSwaggerGen(options =>
 // ==========================================
 var app = builder.Build();
 
+// Optional automatic EF Core migration at startup (convenient for cloud containers)
+if (app.Configuration.GetValue<bool>("ApplyMigrations") ||
+    app.Configuration.GetValue<bool>("APPLY_MIGRATIONS") ||
+    args.Contains("--migrate"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<PosBackend.Infrastructure.Persistence.AppDbContext>();
+    await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.MigrateAsync(db.Database);
+}
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors(CorsPolicyName);
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || 
+    app.Configuration.GetValue<bool>("EnableSwagger") || 
+    app.Configuration.GetValue<bool>("ENABLE_SWAGGER"))
 {
     app.UseSwagger();
     app.UseSwaggerUI();
