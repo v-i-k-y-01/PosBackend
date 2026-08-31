@@ -65,6 +65,24 @@ public sealed record GetProductsQuery(Guid? CategoryId, string? Search) : IReque
 public sealed record GetProductByIdQuery(Guid Id) : IRequest<ProductDto>;
 
 /// <summary>
+/// Query to retrieve a product by its barcode or SKU number.
+/// </summary>
+/// <param name="Barcode">The barcode or SKU string.</param>
+public sealed record GetProductByBarcodeQuery(string Barcode) : IRequest<ProductDto>;
+
+/// <summary>
+/// DTO representing an auto-generated unique barcode.
+/// </summary>
+/// <param name="Barcode">The 12-digit unique barcode string.</param>
+public sealed record GeneratedBarcodeDto(string Barcode);
+
+/// <summary>
+/// Query to generate a guaranteed unique standard 12-digit barcode.
+/// </summary>
+public sealed record GenerateBarcodeQuery : IRequest<GeneratedBarcodeDto>;
+
+
+/// <summary>
 /// Validator governing rules for creating a product.
 /// </summary>
 public sealed class CreateProductValidator : AbstractValidator<CreateProductCommand>
@@ -127,7 +145,9 @@ public sealed class ProductHandlers :
     IRequestHandler<UpdateProductCommand, ProductDto>,
     IRequestHandler<DeleteProductCommand>,
     IRequestHandler<GetProductsQuery, IReadOnlyList<ProductDto>>,
-    IRequestHandler<GetProductByIdQuery, ProductDto>
+    IRequestHandler<GetProductByIdQuery, ProductDto>,
+    IRequestHandler<GetProductByBarcodeQuery, ProductDto>,
+    IRequestHandler<GenerateBarcodeQuery, GeneratedBarcodeDto>
 {
     private readonly IAppDbContext _dbContext;
 
@@ -326,4 +346,44 @@ public sealed class ProductHandlers :
 
         return MapToDto(product);
     }
+
+    /// <summary>
+    /// Handles retrieving a single product by its exact barcode or SKU string.
+    /// </summary>
+    public async Task<ProductDto> Handle(GetProductByBarcodeQuery request, CancellationToken cancellationToken)
+    {
+        var trimmedBarcode = request.Barcode.Trim();
+
+        var product = await _dbContext.Products
+            .AsNoTracking()
+            .Include(p => p.Category)
+            .SingleOrDefaultAsync(p => p.Sku == trimmedBarcode, cancellationToken);
+
+        if (product is null)
+        {
+            throw new NotFoundException("Product with Barcode / SKU", request.Barcode);
+        }
+
+        return MapToDto(product);
+    }
+
+    /// <summary>
+    /// Handles generating a guaranteed unique standard 12-digit barcode.
+    /// </summary>
+    public async Task<GeneratedBarcodeDto> Handle(GenerateBarcodeQuery request, CancellationToken cancellationToken)
+    {
+        var random = new Random();
+        string barcode;
+        bool exists;
+
+        do
+        {
+            var randomDigits = random.NextInt64(100000000L, 999999999L);
+            barcode = $"890{randomDigits}";
+            exists = await _dbContext.Products.AnyAsync(p => p.Sku == barcode, cancellationToken);
+        } while (exists);
+
+        return new GeneratedBarcodeDto(barcode);
+    }
 }
+

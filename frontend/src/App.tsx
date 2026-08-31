@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   BarChart3,
   Boxes,
@@ -15,8 +15,11 @@ import {
   Printer,
   QrCode,
   ReceiptText,
+  ScanBarcode,
   Search,
   ShoppingBag,
+  Sparkles,
+  Tag,
   Trash2,
   Users,
   WalletCards
@@ -25,6 +28,7 @@ import { ApiError } from './api/client';
 import { posApi } from './api/pos';
 import type { CartLine, Category, DailyRevenue, PagedResult, Product, Sale, TopProduct } from './api/types';
 import { useAuth } from './auth/AuthContext';
+import { BarcodeLabelModal } from './components/BarcodeLabelModal';
 import { EmptyState } from './components/EmptyState';
 import { Modal } from './components/Modal';
 import { ReceiptModal } from './components/ReceiptModal';
@@ -58,6 +62,38 @@ const formatDate = (dateString: string): string => {
     minute: '2-digit'
   }).format(new Date(dateString));
 };
+
+/**
+ * Plays an audible POS beep tone using the Web Audio API.
+ * @param success - True for high-pitch confirmation beep, false for low warning buzz.
+ */
+function playScanBeep(success = true) {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioCtx = new AudioContextClass();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (success) {
+      osc.frequency.setValueAtTime(1750, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.09);
+    } else {
+      osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2);
+    }
+  } catch {
+    // AudioContext may be restricted until user interacts
+  }
+}
 
 /**
  * Renders the initial login/registration view.
@@ -175,6 +211,7 @@ function AppShell() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [printedSale, setPrintedSale] = useState<Sale | null>(null);
+  const [labelProduct, setLabelProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState('');
   const [confirmation, setConfirmation] = useState<{
     title: string;
@@ -476,6 +513,7 @@ function AppShell() {
             {view === 'checkout' && (
               <Checkout
                 products={filteredCatalog}
+                allProducts={products}
                 cart={cart}
                 search={search}
                 total={cartTotal}
@@ -483,6 +521,7 @@ function AppShell() {
                 onAdd={addToCart}
                 onQuantity={changeQuantity}
                 onCheckout={handleCheckout}
+                onNotice={setNotice}
               />
             )}
             {view === 'inventory' && (
@@ -490,6 +529,7 @@ function AppShell() {
                 products={filteredCatalog}
                 search={search}
                 onSearch={setSearch}
+                onPrintLabels={setLabelProduct}
                 onEdit={(product) => {
                   setEditingProduct(product);
                   setModal('product');
@@ -537,6 +577,13 @@ function AppShell() {
         <ReceiptModal
           sale={printedSale}
           onClose={() => setPrintedSale(null)}
+        />
+      )}
+
+      {labelProduct && (
+        <BarcodeLabelModal
+          product={labelProduct}
+          onClose={() => setLabelProduct(null)}
         />
       )}
 
@@ -764,6 +811,7 @@ function Stat({ icon, label, value, detail, tone }: StatProps) {
 
 interface CheckoutProps {
   products: Product[];
+  allProducts: Product[];
   cart: CartLine[];
   search: string;
   total: number;
@@ -771,22 +819,113 @@ interface CheckoutProps {
   onAdd: (product: Product) => void;
   onQuantity: (id: string, quantity: number) => void;
   onCheckout: (method: 'Cash' | 'Card' | 'Upi') => Promise<void>;
+  onNotice: (notice: Notice) => void;
 }
 
 /**
- * Checkout terminal interface for searching catalog, building order carts, and paying.
+ * Checkout terminal interface for searching catalog, barcode scanning, building order carts, and paying.
  */
 function Checkout({
   products,
+  allProducts,
   cart,
   search,
   total,
   onSearch,
   onAdd,
   onQuantity,
-  onCheckout
+  onCheckout,
+  onNotice
 }: CheckoutProps) {
   const [paying, setPaying] = useState(false);
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Looks up product by barcode/SKU and adds it to the active order.
+   */
+  const processBarcode = (rawCode: string): boolean => {
+    const code = rawCode.trim();
+    if (!code) return false;
+
+    // Search case-insensitively by SKU or exact ID in the product catalog
+    const foundProduct = allProducts.find(
+      (p) => p.sku.toLowerCase() === code.toLowerCase() || p.id.toLowerCase() === code.toLowerCase()
+    );
+
+    if (foundProduct) {
+      if (foundProduct.stockQty < 1) {
+        playScanBeep(false);
+        onNotice({
+          message: `"${foundProduct.name}" (${foundProduct.sku}) is out of stock.`,
+          type: 'error'
+        });
+        return false;
+      }
+
+      playScanBeep(true);
+      onAdd(foundProduct);
+      onNotice({
+        message: `Scanned: ${foundProduct.name} · ${formatMoney(foundProduct.price)}`
+      });
+      return true;
+    } else {
+      playScanBeep(false);
+      onNotice({
+        message: `Barcode / SKU "${code}" not found in catalog.`,
+        type: 'error'
+      });
+      return false;
+    }
+  };
+
+  /**
+   * Global listener for hardware USB/Bluetooth barcode scanners.
+   * Barcode scanners emit rapid character sequences (< 50ms per key) terminated with Enter.
+   */
+  useEffect(() => {
+    let buffer = '';
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore modifier combinations
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
+
+      const now = Date.now();
+      const elapsed = now - lastKeyTime;
+      lastKeyTime = now;
+
+      if (event.key === 'Enter') {
+        if (buffer.length >= 2) {
+          event.preventDefault();
+          processBarcode(buffer);
+          buffer = '';
+          setBarcodeInput('');
+          barcodeInputRef.current?.focus();
+        }
+      } else if (event.key.length === 1) {
+        // Fast keypress buffer for barcode scanners
+        if (elapsed > 90) {
+          buffer = event.key;
+        } else {
+          buffer += event.key;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [allProducts]);
+
+  const handleBarcodeSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!barcodeInput.trim()) return;
+    const success = processBarcode(barcodeInput);
+    if (success) {
+      setBarcodeInput('');
+    }
+    barcodeInputRef.current?.focus();
+  };
 
   const handlePay = async (method: 'Cash' | 'Card' | 'Upi') => {
     if (!cart.length) return;
@@ -798,12 +937,33 @@ function Checkout({
   return (
     <div className="checkout-layout">
       <section>
+        {/* Dedicated Barcode Scanner & Manual Barcode Entry Bar */}
+        <form className="barcode-input-container" onSubmit={handleBarcodeSubmit}>
+          <ScanBarcode size={22} />
+          <input
+            ref={barcodeInputRef}
+            value={barcodeInput}
+            onChange={(event) => setBarcodeInput(event.target.value)}
+            placeholder="Scan barcode with scanner or enter barcode / SKU number..."
+            autoFocus
+          />
+          <button type="submit" className="primary-button compact-btn">
+            Add to Bill
+          </button>
+        </form>
+
+        <div className="barcode-guide-tip">
+          <ScanBarcode size={14} />
+          <span>Tip: Point your barcode scanner at any product barcode to instantly add it to the cart.</span>
+        </div>
+
+        {/* Regular Catalog Search */}
         <div className="search-field">
           <Search size={19} />
           <input
             value={search}
             onChange={(event) => onSearch(event.target.value)}
-            placeholder="Search products or SKU…"
+            placeholder="Search catalog by name or category…"
           />
         </div>
 
@@ -813,7 +973,10 @@ function Checkout({
               className="product-card"
               key={product.id}
               disabled={product.stockQty < 1}
-              onClick={() => onAdd(product)}
+              onClick={() => {
+                playScanBeep(true);
+                onAdd(product);
+              }}
             >
               <div className="product-image">
                 <ShoppingBag size={25} />
@@ -821,6 +984,9 @@ function Checkout({
               <div>
                 <span>{product.categoryName ?? 'Uncategorized'}</span>
                 <h3>{product.name}</h3>
+                <span className="product-sku-badge">
+                  <ScanBarcode size={11} /> {product.sku}
+                </span>
                 <p>{formatMoney(product.price)}</p>
               </div>
               <small className={product.stockQty < 6 ? 'low-stock' : ''}>
@@ -834,7 +1000,7 @@ function Checkout({
           <EmptyState
             icon={<Search />}
             title="No matching products"
-            detail="Try a different search or add inventory first."
+            detail="Try a different search, scan a barcode, or add inventory first."
           />
         )}
       </section>
@@ -858,7 +1024,9 @@ function Checkout({
               <div className="cart-line" key={line.id}>
                 <div className="line-product">
                   <strong>{line.name}</strong>
-                  <small>{formatMoney(line.price)} each</small>
+                  <small>
+                    {formatMoney(line.price)} · <ScanBarcode size={11} style={{ verticalAlign: 'middle' }} /> {line.sku}
+                  </small>
                 </div>
                 <div className="quantity">
                   <button onClick={() => onQuantity(line.id, line.quantity - 1)}>−</button>
@@ -872,7 +1040,7 @@ function Checkout({
             <EmptyState
               icon={<ShoppingBag />}
               title="Your cart is empty"
-              detail="Choose products from the catalog."
+              detail="Scan barcodes or choose products from the catalog."
             />
           )}
         </div>
@@ -902,6 +1070,7 @@ interface InventoryProps {
   products: Product[];
   search: string;
   onSearch: (value: string) => void;
+  onPrintLabels: (product: Product) => void;
   onEdit: (product: Product) => void;
   onDelete: (id: string) => void;
 }
@@ -909,7 +1078,7 @@ interface InventoryProps {
 /**
  * Inventory catalog management table.
  */
-function Inventory({ products, search, onSearch, onEdit, onDelete }: InventoryProps) {
+function Inventory({ products, search, onSearch, onPrintLabels, onEdit, onDelete }: InventoryProps) {
   return (
     <section className="panel table-panel">
       <div className="table-toolbar">
@@ -930,7 +1099,7 @@ function Inventory({ products, search, onSearch, onEdit, onDelete }: InventoryPr
             <thead>
               <tr>
                 <th>Product</th>
-                <th>SKU</th>
+                <th>Barcode / SKU</th>
                 <th>Category</th>
                 <th>Price</th>
                 <th>Stock</th>
@@ -943,7 +1112,11 @@ function Inventory({ products, search, onSearch, onEdit, onDelete }: InventoryPr
                   <td>
                     <strong>{product.name}</strong>
                   </td>
-                  <td>{product.sku}</td>
+                  <td>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
+                      <ScanBarcode size={14} style={{ color: '#584c7e' }} /> {product.sku}
+                    </span>
+                  </td>
                   <td>{product.categoryName ?? '—'}</td>
                   <td>{formatMoney(product.price)}</td>
                   <td>
@@ -952,6 +1125,13 @@ function Inventory({ products, search, onSearch, onEdit, onDelete }: InventoryPr
                     </span>
                   </td>
                   <td className="actions">
+                    <button
+                      className="receipt-btn"
+                      onClick={() => onPrintLabels(product)}
+                      title="Generate & Print Barcode Sticker Labels"
+                    >
+                      <Tag size={15} /> Labels
+                    </button>
                     <button onClick={() => onEdit(product)}>Edit</button>
                     <button className="danger" onClick={() => void onDelete(product.id)}>
                       <Trash2 size={16} />
@@ -1150,12 +1330,18 @@ function ProductModal({ categories, product, onSave, onClose }: ProductModalProp
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? '');
   const [busy, setBusy] = useState(false);
 
+  const generateBarcode = () => {
+    // Generate a unique 12-digit standard EAN/UPC style barcode (890 + 9 random digits)
+    const randomDigits = Math.floor(100000000 + Math.random() * 900000000);
+    setSku(`890${randomDigits}`);
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     await onSave({
       name,
-      sku,
+      sku: sku.trim(),
       price: Number(price),
       stockQty: Number(stockQty),
       categoryId: categoryId || null
@@ -1168,28 +1354,46 @@ function ProductModal({ categories, product, onSave, onClose }: ProductModalProp
       <form className="modal-form" onSubmit={handleSubmit}>
         <label>
           Product name
-          <input value={name} onChange={(event) => setName(event.target.value)} required />
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Premium Basmati Rice 1kg"
+            required
+          />
+        </label>
+        <label>
+          Barcode / SKU
+          <div className="sku-input-wrapper">
+            <input
+              value={sku}
+              onChange={(event) => setSku(event.target.value)}
+              placeholder="Scan barcode with gun or enter code..."
+              required
+            />
+            <button
+              type="button"
+              className="generate-btn"
+              onClick={generateBarcode}
+              title="Generate a unique random barcode number"
+            >
+              <Sparkles size={14} /> Generate
+            </button>
+          </div>
+        </label>
+        <label>
+          Category
+          <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+            <option value="">Uncategorized</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
         </label>
         <div className="form-row">
           <label>
-            SKU
-            <input value={sku} onChange={(event) => setSku(event.target.value)} required />
-          </label>
-          <label>
-            Category
-            <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-              <option value="">Uncategorized</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="form-row">
-          <label>
-            Price
+            Price (₹)
             <input
               type="number"
               min="0.01"

@@ -94,10 +94,22 @@ export const posApi = {
     }),
 
   /**
-   * Retrieves a single product's details.
+   * Retrieves a single product's details by its ID.
    */
   getProduct: (id: string) =>
     request<Product>(`/api/products/${id}`),
+
+  /**
+   * Retrieves a product by its exact barcode or SKU.
+   */
+  getProductByBarcode: (barcode: string) =>
+    request<Product>(`/api/products/barcode/${encodeURIComponent(barcode)}`),
+
+  /**
+   * Generates a guaranteed unique 12-digit standard barcode from the backend.
+   */
+  generateBarcode: () =>
+    request<{ barcode: string }>('/api/products/generate-barcode'),
 
   /**
    * Creates a new sales transaction. Maps cash / card / UPI methods to API enumerations.

@@ -55,10 +55,157 @@ h1, h2, h3, p { margin: 0; } h1, h2, h3 { letter-spacing: -.035em; } .eyebrow { 
 .actions button.receipt-btn { color: #584c7e; display: inline-flex; align-items: center; gap: 4px; }
 .actions button.receipt-btn:hover { color: #242239; }
 
-/* Thermal / A4 Print Specific Rules */
+/* Barcode Scanning & SKU Controls */
+.barcode-input-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 2px solid #584c7e;
+  border-radius: 12px;
+  padding: 6px 14px;
+  box-shadow: 0 4px 14px #584c7e14;
+  margin-bottom: 16px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.barcode-input-container:focus-within {
+  border-color: #e47858;
+  box-shadow: 0 4px 18px #e4785820;
+}
+.barcode-input-container svg {
+  color: #584c7e;
+  flex-shrink: 0;
+}
+.barcode-input-container input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #242239;
+  background: transparent;
+  padding: 8px 0;
+}
+.barcode-input-container .compact-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.barcode-guide-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #8c899e;
+  margin-top: -8px;
+  margin-bottom: 16px;
+  padding-left: 4px;
+}
+.sku-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.sku-input-wrapper input {
+  flex: 1;
+}
+.generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0edf8;
+  color: #584c7e;
+  border: 1px solid #dedce6;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: .15s;
+}
+.generate-btn:hover {
+  background: #e5e0f3;
+  color: #3b315b;
+}
+.product-card .product-sku-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f1eff8;
+  color: #665b8e;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+
+/* Barcode Label Printing Modal */
+.label-modal-backdrop { z-index: 10; }
+.label-modal { width: min(680px, 100%); max-height: 92vh; display: flex; flex-direction: column; padding: 26px; }
+.label-modal-header { text-align: left; margin-bottom: 16px; }
+.label-badge { display: inline-flex; align-items: center; gap: 6px; background: #eeeaf8; color: #584c7e; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.label-modal-header h2 { font-size: 21px; margin-bottom: 4px; }
+.label-modal-header p { color: #7c798e; font-size: 13px; }
+
+.label-controls { background: #fbfafd; border: 1px solid #e9e7f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; display: grid; gap: 12px; }
+.quantity-preset-group { display: flex; gap: 6px; align-items: center; }
+.quantity-preset-group input { width: 90px; }
+.preset-btn { border: 1px solid #dcd9e7; background: #fff; border-radius: 7px; padding: 8px 10px; font-size: 12px; font-weight: 600; color: #504c6a; }
+.preset-btn:hover { background: #f0edf8; color: #35304e; }
+.preset-btn.stock-preset { background: #eef6f1; color: #377d54; border-color: #c7e5d2; }
+
+.layout-selector { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: #5f5c6c; }
+.layout-title { font-size: 12px; }
+.layout-options { display: flex; gap: 10px; }
+.layout-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 12px; border: 1px solid #d6d3e3; border-radius: 8px; background: #fff; color: #585472; font-size: 12px; font-weight: 600; transition: .15s; }
+.layout-btn.active { border-color: #584c7e; background: #eeeaf8; color: #352c53; }
+
+.label-preview-container { flex: 1; overflow-y: auto; background: #f4f3f8; border: 1px solid #e3e1ec; border-radius: 12px; padding: 16px; max-height: 380px; }
+.label-preview-banner { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: #62578a; margin-bottom: 12px; }
+
+.stickers-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-start; }
+.stickers-grid.a4-sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.stickers-grid.roll-sheet { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+/* Individual Barcode Sticker */
+.barcode-sticker {
+  width: 50mm;
+  min-width: 190px;
+  max-width: 210px;
+  height: 28mm;
+  min-height: 105px;
+  background: #ffffff;
+  border: 1px dashed #b8b5c9;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: center;
+  box-shadow: 0 2px 6px #1b19280d;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #000;
+  box-sizing: border-box;
+}
+.sticker-header { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #444; }
+.sticker-title { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #000; margin: 1px 0; }
+.sticker-barcode-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.barcode-vector-svg { width: 100%; height: 32px; display: block; }
+.sticker-sku-digits { font-family: monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: #000; margin-top: 1px; }
+.sticker-footer { display: flex; align-items: baseline; justify-content: center; gap: 4px; font-size: 11px; }
+.sticker-mrp-label { font-size: 9px; font-weight: 700; color: #333; }
+.sticker-price { font-size: 12px; font-weight: 800; color: #000; }
+.sticker-tax-note { font-size: 7px; color: #666; }
+.label-modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+/* Thermal Receipt & Barcode Sticker Print Specific Rules */
 @media print {
   body * { visibility: hidden; }
   body, html { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+  
   #printable-receipt, #printable-receipt * { visibility: visible; }
   #printable-receipt {
     position: absolute;
@@ -80,7 +227,46 @@ h1, h2, h3, p { margin: 0; } h1, h2, h3 { letter-spacing: -.035em; } .eyebrow { 
   .receipt-table td { color: #000 !important; }
   .receipt-badge, .payment-badge { border: 1px solid #000 !important; background: transparent !important; color: #000 !important; }
   .receipt-logo { display: none !important; }
+
+  /* Barcode Sticker Print Isolation */
+  #printable-barcode-sheet, #printable-barcode-sheet * {
+    visibility: visible !important;
+  }
+  #printable-barcode-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  #printable-barcode-sheet.roll-sheet .barcode-sticker {
+    page-break-after: always;
+    break-after: page;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 50mm !important;
+    height: 25mm !important;
+    margin: 0 auto !important;
+    padding: 2mm !important;
+  }
+  #printable-barcode-sheet.a4-sheet {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4mm !important;
+    padding: 8mm !important;
+  }
+  #printable-barcode-sheet.a4-sheet .barcode-sticker {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
   .no-print { display: none !important; }
   @page { size: auto; margin: 0mm; }
 }
+
 

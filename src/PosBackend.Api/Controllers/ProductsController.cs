@@ -63,6 +63,38 @@ public sealed class ProductsController : ControllerBase
     }
 
     /// <summary>
+    /// Retrieves details of a specific product by its exact barcode or SKU string.
+    /// Access is permitted for both Owner and Cashier roles.
+    /// </summary>
+    /// <param name="barcode">The barcode or SKU string to query.</param>
+    /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+    /// <returns>The product details.</returns>
+    [HttpGet("barcode/{barcode}")]
+    [Authorize(Roles = "Owner,Cashier")]
+    [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductDto>> GetByBarcode(string barcode, CancellationToken cancellationToken)
+    {
+        var product = await _sender.Send(new GetProductByBarcodeQuery(barcode), cancellationToken);
+        return Ok(product);
+    }
+
+    /// <summary>
+    /// Generates a unique, standard 12-digit barcode guaranteed not to conflict with existing catalog items.
+    /// Access is restricted to users with the Owner role.
+    /// </summary>
+    /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+    /// <returns>The generated barcode value.</returns>
+    [HttpGet("generate-barcode")]
+    [Authorize(Roles = "Owner")]
+    [ProducesResponseType(typeof(GeneratedBarcodeDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<GeneratedBarcodeDto>> GenerateBarcode(CancellationToken cancellationToken)
+    {
+        var barcode = await _sender.Send(new GenerateBarcodeQuery(), cancellationToken);
+        return Ok(barcode);
+    }
+
+    /// <summary>
     /// Creates a new product in the store inventory.
     /// Access is restricted to users with the Owner role.
     /// </summary>
