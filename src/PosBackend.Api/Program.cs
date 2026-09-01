@@ -155,8 +155,17 @@ builder.Services.AddSwaggerGen(options =>
 // ==========================================
 var app = builder.Build();
 
-// Optional automatic EF Core migration at startup (convenient for cloud containers)
-if (app.Configuration.GetValue<bool>("ApplyMigrations") ||
+// Optional automatic EF Core migration / reset at startup (convenient for cloud containers)
+if (app.Configuration.GetValue<bool>("ResetDb") ||
+    app.Configuration.GetValue<bool>("RESET_DB") ||
+    args.Contains("--reset-db"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<PosBackend.Infrastructure.Persistence.AppDbContext>();
+    await db.Database.EnsureDeletedAsync();
+    await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.MigrateAsync(db.Database);
+}
+else if (app.Configuration.GetValue<bool>("ApplyMigrations") ||
     app.Configuration.GetValue<bool>("APPLY_MIGRATIONS") ||
     args.Contains("--migrate"))
 {
