@@ -30,6 +30,16 @@ public class User : BaseEntity
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
+    /// Gets or sets the unique identifier of the store this user belongs to.
+    /// </summary>
+    public Guid StoreId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the navigation property for the store this user belongs to.
+    /// </summary>
+    public Store? Store { get; set; }
+
+    /// <summary>
     /// Gets or sets the collection of sales rung up by this user.
     /// Primarily used for tracking sales associated with a cashier.
     /// </summary>

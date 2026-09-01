@@ -10,6 +10,11 @@ namespace PosBackend.Application.Common.Interfaces;
 public interface IAppDbContext
 {
     /// <summary>
+    /// Gets the database set for Stores.
+    /// </summary>
+    DbSet<Store> Stores { get; }
+
+    /// <summary>
     /// Gets the database set for Users.
     /// </summary>
     DbSet<User> Users { get; }

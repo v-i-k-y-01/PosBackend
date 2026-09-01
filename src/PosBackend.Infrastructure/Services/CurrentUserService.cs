@@ -52,6 +52,26 @@ public sealed class CurrentUserService : ICurrentUserService
     }
 
     /// <summary>
+    /// Gets the unique identifier (GUID) of the store associated with the authenticated user.
+    /// </summary>
+    /// <exception cref="UnauthorizedAccessException">Thrown if access token does not hold a valid store identifier.</exception>
+    public Guid StoreId
+    {
+        get
+        {
+            var storeClaimId = User.FindFirstValue("store_id")
+                              ?? User.FindFirstValue(ClaimTypes.GroupSid);
+
+            if (Guid.TryParse(storeClaimId, out var parsedStoreId))
+            {
+                return parsedStoreId;
+            }
+
+            throw new UnauthorizedAccessException("The access token does not contain a valid store id.");
+        }
+    }
+
+    /// <summary>
     /// Gets a value indicating whether the current user has the Owner role.
     /// </summary>
     public bool IsOwner => User.IsInRole("Owner");

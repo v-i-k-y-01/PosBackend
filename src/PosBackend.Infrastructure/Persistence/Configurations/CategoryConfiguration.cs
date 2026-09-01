@@ -23,6 +23,17 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
             .IsRequired()
             .HasMaxLength(200);
 
+        builder.Property(category => category.StoreId)
+            .IsRequired();
+
+        builder.HasIndex(category => new { category.StoreId, category.Name })
+            .IsUnique();
+
+        builder.HasOne(category => category.Store)
+            .WithMany(store => store.Categories)
+            .HasForeignKey(category => category.StoreId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Deleting a category nulls out the product's CategoryId (CategoryId is nullable).
         builder.HasMany(category => category.Products)
             .WithOne(product => product.Category)

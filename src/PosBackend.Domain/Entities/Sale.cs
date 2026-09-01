@@ -36,6 +36,16 @@ public class Sale : BaseEntity
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
+    /// Gets or sets the unique identifier of the store where this sale occurred.
+    /// </summary>
+    public Guid StoreId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the navigation property for the store where this sale occurred.
+    /// </summary>
+    public Store? Store { get; set; }
+
+    /// <summary>
     /// Gets or sets the collection of line items that comprise this sale.
     /// Deleting a sale cascades and deletes all associated sale line items.
     /// </summary>

@@ -17,6 +17,11 @@ public class AppDbContext : DbContext, IAppDbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     /// <summary>
+    /// Gets the database set for Stores.
+    /// </summary>
+    public DbSet<Store> Stores => Set<Store>();
+
+    /// <summary>
     /// Gets the database set for Users.
     /// </summary>
     public DbSet<User> Users => Set<User>();

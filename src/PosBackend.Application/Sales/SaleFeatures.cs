@@ -185,6 +185,8 @@ public sealed class SaleHandlers :
     /// </summary>
     public async Task<SaleDto> Handle(CreateSaleCommand request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         // Execute atomically to ensure stock and sales records are updated consistently.
         return await _dbContext.ExecuteInTransactionAsync(async transactionToken =>
         {
@@ -196,14 +198,14 @@ public sealed class SaleHandlers :
 
             var productIds = groupedItems.Select(item => item.ProductId).ToList();
 
-            // Load products referenced in the sale into memory.
+            // Load products referenced in the sale for the active store into memory.
             var productsDictionary = await _dbContext.Products
-                .Where(product => productIds.Contains(product.Id))
+                .Where(product => productIds.Contains(product.Id) && product.StoreId == storeId)
                 .ToDictionaryAsync(product => product.Id, transactionToken);
 
             if (productsDictionary.Count != productIds.Count)
             {
-                throw new BadRequestException("One or more products do not exist.");
+                throw new BadRequestException("One or more products do not exist in your store.");
             }
 
             // Ensure sufficient stock is available for each line item.
@@ -219,6 +221,7 @@ public sealed class SaleHandlers :
             // Create new transaction sale
             var sale = new Sale
             {
+                StoreId = storeId,
                 CashierId = _currentUserService.UserId,
                 PaymentMethod = request.PaymentMethod,
                 CreatedAt = DateTime.UtcNow
@@ -258,13 +261,16 @@ public sealed class SaleHandlers :
     }
 
     /// <summary>
-    /// Handles listing sales history. Enforces authorization checks and paginates history.
-    /// Cashiers can only view their own sales; Owners can view all sales.
+    /// Handles listing sales history for the active store. Enforces authorization checks and paginates history.
+    /// Cashiers can only view their own sales; Owners can view all sales for their store.
     /// </summary>
     public async Task<PagedResult<SaleDto>> Handle(GetSalesQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var query = _dbContext.Sales
             .AsNoTracking()
+            .Where(sale => sale.StoreId == storeId)
             .Include(sale => sale.Cashier)
             .Include(sale => sale.Items)
                 .ThenInclude(item => item.Product)
@@ -300,16 +306,18 @@ public sealed class SaleHandlers :
     }
 
     /// <summary>
-    /// Handles retrieving details of a single sale. Enforces cashier access restrictions.
+    /// Handles retrieving details of a single sale within the active store. Enforces cashier access restrictions.
     /// </summary>
     public async Task<SaleDto> Handle(GetSaleByIdQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var query = _dbContext.Sales
             .AsNoTracking()
             .Include(sale => sale.Cashier)
             .Include(sale => sale.Items)
                 .ThenInclude(item => item.Product)
-            .Where(sale => sale.Id == request.Id);
+            .Where(sale => sale.Id == request.Id && sale.StoreId == storeId);
 
         // Cashiers cannot read other sales records.
         if (!_currentUserService.IsOwner)

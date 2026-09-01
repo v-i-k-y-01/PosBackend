@@ -10,11 +10,12 @@ using PosBackend.Domain.Enums;
 namespace PosBackend.Application.Auth.Commands;
 
 /// <summary>
-/// Command to register the initial Owner account of the POS system.
+/// Command to register an Owner account and create a new isolated Store in the POS system.
 /// </summary>
 /// <param name="Email">The requested email address for the owner account.</param>
 /// <param name="Password">The desired plain text password (minimum 8 characters).</param>
-public sealed record RegisterOwnerCommand(string Email, string Password) : IRequest<UserResponse>;
+/// <param name="StoreName">Optional name of the store/business (defaults to 'My Store').</param>
+public sealed record RegisterOwnerCommand(string Email, string Password, string? StoreName = null) : IRequest<UserResponse>;
 
 /// <summary>
 /// Validator governing rules for owner registration.
@@ -23,7 +24,7 @@ public sealed class RegisterOwnerCommandValidator : AbstractValidator<RegisterOw
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="RegisterOwnerCommandValidator"/> class.
-    /// Defines validation requirements for owner email and password complexity.
+    /// Defines validation requirements for owner email, password, and store name.
     /// </summary>
     public RegisterOwnerCommandValidator()
     {
@@ -36,11 +37,14 @@ public sealed class RegisterOwnerCommandValidator : AbstractValidator<RegisterOw
             .NotEmpty().WithMessage("Password is required.")
             .MinimumLength(8).WithMessage("Password must be at least 8 characters long.")
             .MaximumLength(128).WithMessage("Password cannot exceed 128 characters.");
+
+        RuleFor(command => command.StoreName)
+            .MaximumLength(200).WithMessage("Store name cannot exceed 200 characters.");
     }
 }
 
 /// <summary>
-/// Handler executing logic to register the initial Owner user in the database.
+/// Handler executing logic to register a new Owner user and their isolated Store in the database.
 /// </summary>
 public sealed class RegisterOwnerCommandHandler : IRequestHandler<RegisterOwnerCommand, UserResponse>
 {
@@ -59,9 +63,9 @@ public sealed class RegisterOwnerCommandHandler : IRequestHandler<RegisterOwnerC
     }
 
     /// <summary>
-    /// Processes owner registration, checks for duplicate email, hashes password, and persists the new Owner.
+    /// Processes owner registration, checks for duplicate email, hashes password, and persists the new Store and Owner.
     /// </summary>
-    /// <param name="request">The registration command containing credentials.</param>
+    /// <param name="request">The registration command containing credentials and store details.</param>
     /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
     /// <returns>A user response DTO representing the newly registered owner.</returns>
     /// <exception cref="ConflictException">Thrown if a user with the same email already exists.</exception>
@@ -77,15 +81,28 @@ public sealed class RegisterOwnerCommandHandler : IRequestHandler<RegisterOwnerC
             throw new ConflictException("An account with this email already exists.");
         }
 
+        var storeName = string.IsNullOrWhiteSpace(request.StoreName)
+            ? "My Store"
+            : request.StoreName.Trim();
+
+        var store = new Store
+        {
+            Id = Guid.NewGuid(),
+            Name = storeName,
+            CreatedAt = DateTime.UtcNow
+        };
+
         var newUser = new User
         {
             Id = Guid.NewGuid(),
             Email = normalizedEmail,
             PasswordHash = _passwordHasher.Hash(request.Password),
             Role = UserRole.Owner,
+            StoreId = store.Id,
             CreatedAt = DateTime.UtcNow
         };
 
+        _dbContext.Stores.Add(store);
         _dbContext.Users.Add(newUser);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -93,6 +110,7 @@ public sealed class RegisterOwnerCommandHandler : IRequestHandler<RegisterOwnerC
             newUser.Id,
             newUser.Email,
             newUser.Role.ToString(),
+            newUser.StoreId,
             newUser.CreatedAt);
     }
 }

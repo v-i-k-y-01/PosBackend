@@ -30,12 +30,12 @@ export const posApi = {
     }),
 
   /**
-   * Registers a new owner account (initial step).
+   * Registers a new owner account and creates their isolated store.
    */
-  register: (email: string, password: string) =>
+  register: (email: string, password: string, storeName?: string) =>
     request<User>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password, storeName })
     }),
 
   /**

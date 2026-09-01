@@ -13,6 +13,12 @@ public interface ICurrentUserService
     Guid UserId { get; }
 
     /// <summary>
+    /// Gets the unique identifier of the store the authenticated user belongs to.
+    /// Throws an exception if user is not authenticated or token lacks store claim.
+    /// </summary>
+    Guid StoreId { get; }
+
+    /// <summary>
     /// Gets a value indicating whether the current user has the Owner role.
     /// </summary>
     bool IsOwner { get; }

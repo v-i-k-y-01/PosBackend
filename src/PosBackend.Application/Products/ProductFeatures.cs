@@ -150,14 +150,17 @@ public sealed class ProductHandlers :
     IRequestHandler<GenerateBarcodeQuery, GeneratedBarcodeDto>
 {
     private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProductHandlers"/> class.
     /// </summary>
     /// <param name="dbContext">The application database context.</param>
-    public ProductHandlers(IAppDbContext dbContext)
+    /// <param name="currentUserService">The service providing the authenticated user and store context.</param>
+    public ProductHandlers(IAppDbContext dbContext, ICurrentUserService currentUserService)
     {
         _dbContext = dbContext;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
@@ -177,14 +180,15 @@ public sealed class ProductHandlers :
     }
 
     /// <summary>
-    /// Validates that the referenced category exists in the system.
+    /// Validates that the referenced category exists in the system within the current store.
     /// </summary>
     private async Task EnsureCategoryExistsAsync(Guid? categoryId, CancellationToken cancellationToken)
     {
         if (categoryId.HasValue)
         {
+            var storeId = _currentUserService.StoreId;
             var categoryExists = await _dbContext.Categories
-                .AnyAsync(category => category.Id == categoryId.Value, cancellationToken);
+                .AnyAsync(category => category.Id == categoryId.Value && category.StoreId == storeId, cancellationToken);
 
             if (!categoryExists)
             {
@@ -194,24 +198,26 @@ public sealed class ProductHandlers :
     }
 
     /// <summary>
-    /// Handles product creation. Checks for SKU conflicts and verifies category.
+    /// Handles product creation within the active store. Checks for SKU conflicts and verifies category.
     /// </summary>
     public async Task<ProductDto> Handle(CreateProductCommand request, CancellationToken cancellationToken)
     {
         await EnsureCategoryExistsAsync(request.CategoryId, cancellationToken);
 
+        var storeId = _currentUserService.StoreId;
         var trimmedSku = request.Sku.Trim();
 
         var skuExists = await _dbContext.Products
-            .AnyAsync(product => product.Sku == trimmedSku, cancellationToken);
+            .AnyAsync(product => product.StoreId == storeId && product.Sku == trimmedSku, cancellationToken);
 
         if (skuExists)
         {
-            throw new ConflictException("A product with this SKU already exists.");
+            throw new ConflictException("A product with this SKU already exists in your store.");
         }
 
         var product = new Product
         {
+            StoreId = storeId,
             CategoryId = request.CategoryId,
             Name = request.Name.Trim(),
             Sku = trimmedSku,
@@ -234,13 +240,15 @@ public sealed class ProductHandlers :
     }
 
     /// <summary>
-    /// Handles product updates. Validates that product exists, checks for SKU conflicts, and saves details.
+    /// Handles product updates within the active store. Validates that product exists, checks for SKU conflicts, and saves details.
     /// </summary>
     public async Task<ProductDto> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var product = await _dbContext.Products
             .Include(p => p.Category)
-            .SingleOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
+            .SingleOrDefaultAsync(p => p.Id == request.Id && p.StoreId == storeId, cancellationToken);
 
         if (product is null)
         {
@@ -252,11 +260,11 @@ public sealed class ProductHandlers :
         var trimmedSku = request.Sku.Trim();
 
         var skuConflict = await _dbContext.Products
-            .AnyAsync(p => p.Id != request.Id && p.Sku == trimmedSku, cancellationToken);
+            .AnyAsync(p => p.StoreId == storeId && p.Id != request.Id && p.Sku == trimmedSku, cancellationToken);
 
         if (skuConflict)
         {
-            throw new ConflictException("A product with this SKU already exists.");
+            throw new ConflictException("A product with this SKU already exists in your store.");
         }
 
         product.CategoryId = request.CategoryId;
@@ -276,12 +284,14 @@ public sealed class ProductHandlers :
     }
 
     /// <summary>
-    /// Handles product deletion. Restricts deletion if product has historical sale items.
+    /// Handles product deletion within the active store. Restricts deletion if product has historical sale items.
     /// </summary>
     public async Task Handle(DeleteProductCommand request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var product = await _dbContext.Products
-            .FindAsync(new object[] { request.Id }, cancellationToken);
+            .SingleOrDefaultAsync(p => p.Id == request.Id && p.StoreId == storeId, cancellationToken);
 
         if (product is null)
         {
@@ -302,12 +312,15 @@ public sealed class ProductHandlers :
     }
 
     /// <summary>
-    /// Handles querying and filtering the products catalog.
+    /// Handles querying and filtering the products catalog for the active store.
     /// </summary>
     public async Task<IReadOnlyList<ProductDto>> Handle(GetProductsQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var query = _dbContext.Products
             .AsNoTracking()
+            .Where(p => p.StoreId == storeId)
             .Include(p => p.Category)
             .AsQueryable();
 
@@ -330,14 +343,16 @@ public sealed class ProductHandlers :
     }
 
     /// <summary>
-    /// Handles retrieving a single product by its unique identifier.
+    /// Handles retrieving a single product by its unique identifier within the active store.
     /// </summary>
     public async Task<ProductDto> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var product = await _dbContext.Products
             .AsNoTracking()
             .Include(p => p.Category)
-            .SingleOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
+            .SingleOrDefaultAsync(p => p.Id == request.Id && p.StoreId == storeId, cancellationToken);
 
         if (product is null)
         {
@@ -348,16 +363,17 @@ public sealed class ProductHandlers :
     }
 
     /// <summary>
-    /// Handles retrieving a single product by its exact barcode or SKU string.
+    /// Handles retrieving a single product by its exact barcode or SKU string within the active store.
     /// </summary>
     public async Task<ProductDto> Handle(GetProductByBarcodeQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
         var trimmedBarcode = request.Barcode.Trim();
 
         var product = await _dbContext.Products
             .AsNoTracking()
             .Include(p => p.Category)
-            .SingleOrDefaultAsync(p => p.Sku == trimmedBarcode, cancellationToken);
+            .SingleOrDefaultAsync(p => p.StoreId == storeId && p.Sku == trimmedBarcode, cancellationToken);
 
         if (product is null)
         {
@@ -368,10 +384,11 @@ public sealed class ProductHandlers :
     }
 
     /// <summary>
-    /// Handles generating a guaranteed unique standard 12-digit barcode.
+    /// Handles generating a guaranteed unique standard 12-digit barcode for the active store.
     /// </summary>
     public async Task<GeneratedBarcodeDto> Handle(GenerateBarcodeQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
         var random = new Random();
         string barcode;
         bool exists;
@@ -380,7 +397,7 @@ public sealed class ProductHandlers :
         {
             var randomDigits = random.NextInt64(100000000L, 999999999L);
             barcode = $"890{randomDigits}";
-            exists = await _dbContext.Products.AnyAsync(p => p.Sku == barcode, cancellationToken);
+            exists = await _dbContext.Products.AnyAsync(p => p.StoreId == storeId && p.Sku == barcode, cancellationToken);
         } while (exists);
 
         return new GeneratedBarcodeDto(barcode);

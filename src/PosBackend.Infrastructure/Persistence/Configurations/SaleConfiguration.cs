@@ -30,6 +30,14 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
 
         builder.Property(sale => sale.CreatedAt).IsRequired();
 
+        builder.Property(sale => sale.StoreId)
+            .IsRequired();
+
+        builder.HasOne(sale => sale.Store)
+            .WithMany(store => store.Sales)
+            .HasForeignKey(sale => sale.StoreId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Deleting a sale cascades to its line items.
         builder.HasMany(sale => sale.Items)
             .WithOne(saleItem => saleItem.Sale)

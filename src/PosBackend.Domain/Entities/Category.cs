@@ -13,6 +13,16 @@ public class Category : BaseEntity
     public string Name { get; set; } = null!;
 
     /// <summary>
+    /// Gets or sets the unique identifier of the store this category belongs to.
+    /// </summary>
+    public Guid StoreId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the navigation property for the store this category belongs to.
+    /// </summary>
+    public Store? Store { get; set; }
+
+    /// <summary>
     /// Gets or sets the navigation collection of products associated with this category.
     /// </summary>
     public ICollection<Product> Products { get; set; } = new List<Product>();

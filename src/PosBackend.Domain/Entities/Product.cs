@@ -45,6 +45,16 @@ public class Product : BaseEntity
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
+    /// Gets or sets the unique identifier of the store this product belongs to.
+    /// </summary>
+    public Guid StoreId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the navigation property for the store this product belongs to.
+    /// </summary>
+    public Store? Store { get; set; }
+
+    /// <summary>
     /// Gets or sets the navigation collection of historical sale items referencing this product.
     /// Products with historical sale records are protected against hard deletion.
     /// </summary>

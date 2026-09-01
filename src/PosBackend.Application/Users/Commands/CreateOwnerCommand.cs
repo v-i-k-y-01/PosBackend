@@ -47,16 +47,22 @@ public sealed class CreateOwnerCommandHandler : IRequestHandler<CreateOwnerComma
 {
     private readonly IAppDbContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ICurrentUserService _currentUserService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CreateOwnerCommandHandler"/> class.
     /// </summary>
     /// <param name="dbContext">The application database context.</param>
     /// <param name="passwordHasher">The password hashing utility.</param>
-    public CreateOwnerCommandHandler(IAppDbContext dbContext, IPasswordHasher passwordHasher)
+    /// <param name="currentUserService">The service providing the authenticated user context.</param>
+    public CreateOwnerCommandHandler(
+        IAppDbContext dbContext,
+        IPasswordHasher passwordHasher,
+        ICurrentUserService currentUserService)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
@@ -84,6 +90,7 @@ public sealed class CreateOwnerCommandHandler : IRequestHandler<CreateOwnerComma
             Email = normalizedEmail,
             PasswordHash = _passwordHasher.Hash(request.Password),
             Role = UserRole.Owner,
+            StoreId = _currentUserService.StoreId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -94,6 +101,7 @@ public sealed class CreateOwnerCommandHandler : IRequestHandler<CreateOwnerComma
             newUser.Id,
             newUser.Email,
             newUser.Role.ToString(),
+            newUser.StoreId,
             newUser.CreatedAt);
     }
 }

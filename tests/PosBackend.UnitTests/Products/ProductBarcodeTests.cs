@@ -4,6 +4,7 @@ using PosBackend.Application.Common.Exceptions;
 using PosBackend.Application.Products;
 using PosBackend.Domain.Entities;
 using PosBackend.Infrastructure.Persistence;
+using PosBackend.UnitTests.Common;
 using Xunit;
 
 namespace PosBackend.UnitTests.Products;
@@ -24,9 +25,12 @@ public class ProductBarcodeTests
     {
         // Arrange
         using var dbContext = CreateInMemoryDbContext();
+        var currentUserService = new TestCurrentUserService();
+
         var product = new Product
         {
             Id = Guid.NewGuid(),
+            StoreId = currentUserService.StoreId,
             Name = "Basmati Rice 1kg",
             Sku = "890123456789",
             Price = 149.00m,
@@ -36,7 +40,7 @@ public class ProductBarcodeTests
         dbContext.Products.Add(product);
         await dbContext.SaveChangesAsync();
 
-        var handler = new ProductHandlers(dbContext);
+        var handler = new ProductHandlers(dbContext, currentUserService);
         var query = new GetProductByBarcodeQuery("890123456789");
 
         // Act
@@ -54,7 +58,8 @@ public class ProductBarcodeTests
     {
         // Arrange
         using var dbContext = CreateInMemoryDbContext();
-        var handler = new ProductHandlers(dbContext);
+        var currentUserService = new TestCurrentUserService();
+        var handler = new ProductHandlers(dbContext, currentUserService);
         var query = new GetProductByBarcodeQuery("999999999999");
 
         // Act
@@ -69,7 +74,8 @@ public class ProductBarcodeTests
     {
         // Arrange
         using var dbContext = CreateInMemoryDbContext();
-        var handler = new ProductHandlers(dbContext);
+        var currentUserService = new TestCurrentUserService();
+        var handler = new ProductHandlers(dbContext, currentUserService);
         var query = new GenerateBarcodeQuery();
 
         // Act

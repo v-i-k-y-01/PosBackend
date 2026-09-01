@@ -47,20 +47,26 @@ public sealed class CreateCashierCommandHandler : IRequestHandler<CreateCashierC
 {
     private readonly IAppDbContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ICurrentUserService _currentUserService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CreateCashierCommandHandler"/> class.
     /// </summary>
     /// <param name="dbContext">The application database context.</param>
     /// <param name="passwordHasher">The password hashing utility.</param>
-    public CreateCashierCommandHandler(IAppDbContext dbContext, IPasswordHasher passwordHasher)
+    /// <param name="currentUserService">The service providing the authenticated user context.</param>
+    public CreateCashierCommandHandler(
+        IAppDbContext dbContext,
+        IPasswordHasher passwordHasher,
+        ICurrentUserService currentUserService)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
-    /// Checks for duplicate user, hashes password, and persists the new Cashier user.
+    /// Checks for duplicate user, hashes password, and persists the new Cashier user within the active store.
     /// </summary>
     /// <param name="request">The creation command containing new user parameters.</param>
     /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
@@ -84,6 +90,7 @@ public sealed class CreateCashierCommandHandler : IRequestHandler<CreateCashierC
             Email = normalizedEmail,
             PasswordHash = _passwordHasher.Hash(request.Password),
             Role = UserRole.Cashier,
+            StoreId = _currentUserService.StoreId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -94,6 +101,7 @@ public sealed class CreateCashierCommandHandler : IRequestHandler<CreateCashierC
             newUser.Id,
             newUser.Email,
             newUser.Role.ToString(),
+            newUser.StoreId,
             newUser.CreatedAt);
     }
 }

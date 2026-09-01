@@ -37,7 +37,7 @@ public sealed class AuthController : ControllerBase
     public async Task<ActionResult<UserResponse>> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
         var registeredUser = await _sender.Send(
-            new RegisterOwnerCommand(request.Email, request.Password),
+            new RegisterOwnerCommand(request.Email, request.Password, request.StoreName),
             cancellationToken);
 
         return Created(string.Empty, registeredUser);
@@ -67,7 +67,8 @@ public sealed class AuthController : ControllerBase
 /// </summary>
 /// <param name="Email">The requested email address.</param>
 /// <param name="Password">The desired secure password.</param>
-public sealed record RegisterRequest(string Email, string Password);
+/// <param name="StoreName">Optional name of the business/store.</param>
+public sealed record RegisterRequest(string Email, string Password, string? StoreName = null);
 
 /// <summary>
 /// Request contract for login authentication.

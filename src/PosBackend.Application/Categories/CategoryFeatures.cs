@@ -92,33 +92,38 @@ public sealed class CategoryHandlers :
     IRequestHandler<GetCategoryByIdQuery, CategoryDto>
 {
     private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CategoryHandlers"/> class.
     /// </summary>
     /// <param name="dbContext">The application database context.</param>
-    public CategoryHandlers(IAppDbContext dbContext)
+    /// <param name="currentUserService">The service providing the authenticated user and store context.</param>
+    public CategoryHandlers(IAppDbContext dbContext, ICurrentUserService currentUserService)
     {
         _dbContext = dbContext;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
-    /// Handles the creation of a new category. Ensures uniqueness of name.
+    /// Handles the creation of a new category within the active store. Ensures uniqueness of name within the store.
     /// </summary>
     public async Task<CategoryDto> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
         var trimmedName = request.Name.Trim();
 
         var nameExists = await _dbContext.Categories
-            .AnyAsync(category => category.Name == trimmedName, cancellationToken);
+            .AnyAsync(category => category.StoreId == storeId && category.Name == trimmedName, cancellationToken);
 
         if (nameExists)
         {
-            throw new ConflictException("A category with this name already exists.");
+            throw new ConflictException("A category with this name already exists in your store.");
         }
 
         var category = new Category
         {
+            StoreId = storeId,
             Name = trimmedName
         };
 
@@ -129,12 +134,14 @@ public sealed class CategoryHandlers :
     }
 
     /// <summary>
-    /// Handles updating an existing category. Checks for existence and duplicate naming.
+    /// Handles updating an existing category within the active store. Checks for existence and duplicate naming.
     /// </summary>
     public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var category = await _dbContext.Categories
-            .FindAsync(new object[] { request.Id }, cancellationToken);
+            .SingleOrDefaultAsync(c => c.Id == request.Id && c.StoreId == storeId, cancellationToken);
 
         if (category is null)
         {
@@ -144,11 +151,11 @@ public sealed class CategoryHandlers :
         var trimmedName = request.Name.Trim();
 
         var nameConflict = await _dbContext.Categories
-            .AnyAsync(cat => cat.Id != request.Id && cat.Name == trimmedName, cancellationToken);
+            .AnyAsync(cat => cat.StoreId == storeId && cat.Id != request.Id && cat.Name == trimmedName, cancellationToken);
 
         if (nameConflict)
         {
-            throw new ConflictException("A category with this name already exists.");
+            throw new ConflictException("A category with this name already exists in your store.");
         }
 
         category.Name = trimmedName;
@@ -158,12 +165,14 @@ public sealed class CategoryHandlers :
     }
 
     /// <summary>
-    /// Handles the deletion of an existing category.
+    /// Handles the deletion of an existing category within the active store.
     /// </summary>
     public async Task Handle(DeleteCategoryCommand request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var category = await _dbContext.Categories
-            .FindAsync(new object[] { request.Id }, cancellationToken);
+            .SingleOrDefaultAsync(c => c.Id == request.Id && c.StoreId == storeId, cancellationToken);
 
         if (category is null)
         {
@@ -175,25 +184,30 @@ public sealed class CategoryHandlers :
     }
 
     /// <summary>
-    /// Handles retrieving all categories sorted alphabetically.
+    /// Handles retrieving all categories for the active store, sorted alphabetically.
     /// </summary>
     public async Task<IReadOnlyList<CategoryDto>> Handle(GetCategoriesQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         return await _dbContext.Categories
             .AsNoTracking()
+            .Where(category => category.StoreId == storeId)
             .OrderBy(category => category.Name)
             .Select(category => new CategoryDto(category.Id, category.Name))
             .ToListAsync(cancellationToken);
     }
 
     /// <summary>
-    /// Handles retrieving a category by its unique identifier.
+    /// Handles retrieving a category by its unique identifier within the active store.
     /// </summary>
     public async Task<CategoryDto> Handle(GetCategoryByIdQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var categoryDto = await _dbContext.Categories
             .AsNoTracking()
-            .Where(category => category.Id == request.Id)
+            .Where(category => category.Id == request.Id && category.StoreId == storeId)
             .Select(category => new CategoryDto(category.Id, category.Name))
             .SingleOrDefaultAsync(cancellationToken);
 

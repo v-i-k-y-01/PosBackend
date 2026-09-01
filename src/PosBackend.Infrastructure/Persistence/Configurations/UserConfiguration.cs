@@ -25,6 +25,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasIndex(user => user.Email).IsUnique();
 
+        builder.Property(user => user.StoreId)
+            .IsRequired();
+
+        builder.HasOne(user => user.Store)
+            .WithMany(store => store.Users)
+            .HasForeignKey(user => user.StoreId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.Property(user => user.PasswordHash).IsRequired();
 
         // Store the enum as its string name ("Owner"/"Cashier") for readability.

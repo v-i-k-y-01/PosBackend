@@ -44,23 +44,29 @@ public sealed class ReportHandlers :
     IRequestHandler<GetTopProductsQuery, IReadOnlyList<TopProductDto>>
 {
     private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReportHandlers"/> class.
     /// </summary>
     /// <param name="dbContext">The application database context.</param>
-    public ReportHandlers(IAppDbContext dbContext)
+    /// <param name="currentUserService">The service providing the authenticated user and store context.</param>
+    public ReportHandlers(IAppDbContext dbContext, ICurrentUserService currentUserService)
     {
         _dbContext = dbContext;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
-    /// Handles daily revenue queries. Groups sale transaction total amounts by calendar date.
+    /// Handles daily revenue queries for the active store. Groups sale transaction total amounts by calendar date.
     /// </summary>
     public async Task<IReadOnlyList<DailyRevenueDto>> Handle(GetDailyRevenueQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var salesQuery = _dbContext.Sales
             .AsNoTracking()
+            .Where(sale => sale.StoreId == storeId)
             .AsQueryable();
 
         // Apply starting boundary filter.
@@ -91,12 +97,15 @@ public sealed class ReportHandlers :
     }
 
     /// <summary>
-    /// Handles top performing products query. Groups sold items by product ID and aggregates volumes/revenue.
+    /// Handles top performing products query for the active store. Groups sold items by product ID and aggregates volumes/revenue.
     /// </summary>
     public async Task<IReadOnlyList<TopProductDto>> Handle(GetTopProductsQuery request, CancellationToken cancellationToken)
     {
+        var storeId = _currentUserService.StoreId;
+
         var saleItemsQuery = _dbContext.SaleItems
             .AsNoTracking()
+            .Where(item => item.Sale!.StoreId == storeId)
             .AsQueryable();
 
         // Apply starting date range boundaries.
@@ -128,7 +137,7 @@ public sealed class ReportHandlers :
         var productIds = aggregatedSales.Select(aggregate => aggregate.ProductId).ToList();
         var productNamesMap = await _dbContext.Products
             .AsNoTracking()
-            .Where(product => productIds.Contains(product.Id))
+            .Where(product => productIds.Contains(product.Id) && product.StoreId == storeId)
             .ToDictionaryAsync(product => product.Id, product => product.Name, cancellationToken);
 
         // Map aggregated records to TopProductDto, sorting by quantity units sold descending, then alphabetically.

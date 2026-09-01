@@ -63,6 +63,7 @@ public sealed class JwtTokenService : ITokenService
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(ClaimTypes.Role, user.Role.ToString()),
+            new Claim("store_id", user.StoreId.ToString()),
             new Claim(TokenTypeClaim, tokenType)
         };
 

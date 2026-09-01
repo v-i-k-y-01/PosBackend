@@ -27,7 +27,16 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .IsRequired()
             .HasMaxLength(100);
 
-        builder.HasIndex(product => product.Sku).IsUnique();
+        builder.Property(product => product.StoreId)
+            .IsRequired();
+
+        builder.HasIndex(product => new { product.StoreId, product.Sku })
+            .IsUnique();
+
+        builder.HasOne(product => product.Store)
+            .WithMany(store => store.Products)
+            .HasForeignKey(product => product.StoreId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Property(product => product.Price)
             .HasColumnType("numeric(18,2)")

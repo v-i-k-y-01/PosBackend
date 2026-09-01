@@ -101,6 +101,7 @@ function playScanBeep(success = true) {
 function LoginScreen() {
   const { login } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [storeName, setStoreName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -113,7 +114,7 @@ function LoginScreen() {
 
     try {
       if (mode === 'register') {
-        await posApi.register(email, password);
+        await posApi.register(email, password, storeName.trim() || undefined);
       }
       await login(email, password);
     } catch (exception) {
@@ -142,10 +143,22 @@ function LoginScreen() {
           <div>
             <p className="eyebrow">WELCOME TO COUNTERLY</p>
             <h2>{mode === 'login' ? 'Welcome back' : 'Set up your store'}</h2>
-            <p>{mode === 'login' ? 'Sign in to start selling.' : 'Create the first owner account for your store.'}</p>
+            <p>{mode === 'login' ? 'Sign in to start selling.' : 'Create an isolated store and owner account.'}</p>
           </div>
 
           <form onSubmit={handleSubmit}>
+            {mode === 'register' && (
+              <label>
+                Store / Business Name
+                <input
+                  type="text"
+                  placeholder="e.g., Downtown Bakery, Luxe Apparel"
+                  value={storeName}
+                  onChange={(event) => setStoreName(event.target.value)}
+                  maxLength={200}
+                />
+              </label>
+            )}
             <label>
               Email address
               <input
@@ -169,7 +182,7 @@ function LoginScreen() {
             </label>
             {error && <p className="form-error">{error}</p>}
             <button className="primary-button full" disabled={busy}>
-              {busy ? 'Please wait…' : mode === 'login' ? 'Sign in to Counterly' : 'Create owner account'}
+              {busy ? 'Please wait…' : mode === 'login' ? 'Sign in to Counterly' : 'Create store & account'}
             </button>
           </form>
 
@@ -180,7 +193,7 @@ function LoginScreen() {
               setError('');
             }}
           >
-            {mode === 'login' ? 'New store? Create your owner account' : 'Already registered? Sign in'}
+            {mode === 'login' ? 'New store? Create your own isolated store' : 'Already registered? Sign in'}
           </button>
         </div>
       </section>
