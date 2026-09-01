@@ -2,6 +2,7 @@ using PosBackend.Application;
 using PosBackend.Infrastructure;
 using PosBackend.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Security.Claims;
@@ -162,7 +163,18 @@ if (app.Configuration.GetValue<bool>("ResetDb") ||
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<PosBackend.Infrastructure.Persistence.AppDbContext>();
-    await db.Database.EnsureDeletedAsync();
+
+    // In managed PostgreSQL (Supabase, Render, Neon), you cannot DROP the active database ('postgres').
+    // Instead, drop all existing tables in the schema and re-run migrations from scratch.
+    await db.Database.ExecuteSqlRawAsync(@"
+        DO $$ DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = current_schema()) LOOP
+                EXECUTE 'DROP TABLE IF EXISTS ""' || r.tablename || '"" CASCADE';
+            END LOOP;
+        END $$;
+    ");
     await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.MigrateAsync(db.Database);
 }
 else if (app.Configuration.GetValue<bool>("ApplyMigrations") ||
