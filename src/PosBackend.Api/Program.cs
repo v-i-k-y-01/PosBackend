@@ -13,6 +13,13 @@ Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "true");
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Dynamically bind to the PORT assigned by hosting providers (Render, Railway, Fly.io, etc.)
+var envPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(envPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{envPort}");
+}
+
 // ==========================================
 // 1. CONSTANTS DEFINITIONS
 // ==========================================
