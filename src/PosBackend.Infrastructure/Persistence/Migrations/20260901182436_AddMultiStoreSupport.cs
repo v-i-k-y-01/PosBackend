@@ -28,10 +28,7 @@ namespace PosBackend.Infrastructure.Persistence.Migrations
                     table.PrimaryKey("PK_Stores", x => x.Id);
                 });
 
-            migrationBuilder.InsertData(
-                table: "Stores",
-                columns: new[] { "Id", "Name", "CreatedAt" },
-                values: new object[] { new Guid("00000000-0000-0000-0000-000000000000"), "Main Store", DateTime.UtcNow });
+            migrationBuilder.Sql("INSERT INTO \"Stores\" (\"Id\", \"Name\", \"CreatedAt\") VALUES ('00000000-0000-0000-0000-000000000000', 'Main Store', NOW()) ON CONFLICT (\"Id\") DO NOTHING;");
 
             migrationBuilder.AddColumn<Guid>(
                 name: "StoreId",
@@ -60,6 +57,11 @@ namespace PosBackend.Infrastructure.Persistence.Migrations
                 type: "uuid",
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
+
+            migrationBuilder.Sql("UPDATE \"Users\" SET \"StoreId\" = '00000000-0000-0000-0000-000000000000' WHERE \"StoreId\" IS NULL;");
+            migrationBuilder.Sql("UPDATE \"Categories\" SET \"StoreId\" = '00000000-0000-0000-0000-000000000000' WHERE \"StoreId\" IS NULL;");
+            migrationBuilder.Sql("UPDATE \"Products\" SET \"StoreId\" = '00000000-0000-0000-0000-000000000000' WHERE \"StoreId\" IS NULL;");
+            migrationBuilder.Sql("UPDATE \"Sales\" SET \"StoreId\" = '00000000-0000-0000-0000-000000000000' WHERE \"StoreId\" IS NULL;");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_StoreId",
