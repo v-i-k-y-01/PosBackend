@@ -11,9 +11,6 @@ namespace PosBackend.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Wipe all old single-tenant legacy data for a clean multi-store slate
-            migrationBuilder.Sql("TRUNCATE TABLE \"SaleItems\", \"Sales\", \"Products\", \"Categories\", \"Users\" CASCADE;");
-
             migrationBuilder.DropIndex(
                 name: "IX_Products_Sku",
                 table: "Products");
